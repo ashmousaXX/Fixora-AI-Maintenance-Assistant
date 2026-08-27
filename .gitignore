@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment / secrets
+.env
+
+# Temporary files
+tempCodeRunnerFile.py
+
+# Runtime / generated files
+voice_recordings/
+*.wav
+*.webm
+
+# Vector database
+vector_db/
+
+# Processed/generated data
+data_processed/
+
+# Hugging Face cache
+huggingface_cache/
+.cache/
+
+# PDF manuals
+Data/Maintencie/
