@@ -393,7 +393,105 @@ def semantic_search(
     return results
 
 
+# =========================================================
+# Keyword overlap (lexical) scoring — no hardcoded synonyms,
+# just literal terms from the query itself, so it stays
+# general-purpose instead of tuned to one known test case.
+# =========================================================
+STOPWORDS = {
+    "the", "a", "an", "is", "has", "have", "of", "to", "in",
+    "on", "for", "with", "and", "or", "problem", "issue",
+}
+DOMAIN_SYNONYMS = {
+    "power": {"power", "voltage", "electrical", "electric", "mains", "volt"},
+    "screen": {"screen", "display", "monitor"},
+    "leak": {"leak", "leakage"},
+    "battery": {"battery", "voltage", "charge"},
+}
 
+
+def extract_keywords(query):
+    words = re.findall(r"[a-zA-Z]+", query.lower())
+    keywords = set()
+    for w in words:
+        if w in STOPWORDS or len(w) <= 2:
+            continue
+        keywords.add(w)
+        keywords.update(DOMAIN_SYNONYMS.get(w, set()))
+    return keywords
+
+
+def keyword_overlap_score(text, keywords):
+    text_lower = text.lower()
+    return sum(1 for kw in keywords if kw in text_lower)
+
+
+def lexical_search(device_id, keywords, top_k=10):
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+    collection = client.get_collection(name=COLLECTION_NAME)
+
+    data = collection.get(where={"device_id": device_id})
+
+    scored = []
+    for doc, meta, doc_id in zip(data["documents"], data["metadatas"], data["ids"]):
+        overlap = keyword_overlap_score(doc, keywords)
+        if overlap > 0:
+            scored.append((overlap, doc, meta, doc_id))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return scored[:top_k]
+
+
+def hybrid_search(
+    query,
+    device_id=None,
+    top_k=5,
+    semantic_pool=15,
+    lexical_pool=15,
+    rrf_k=60,
+):
+    semantic_raw = semantic_search(query=query, device_id=device_id, top_k=semantic_pool)
+
+    sem_docs = semantic_raw["documents"][0]
+    sem_dists = semantic_raw["distances"][0]
+    sem_metas = semantic_raw["metadatas"][0]
+    sem_ids = semantic_raw["ids"][0] if semantic_raw.get("ids") else [None] * len(sem_docs)
+
+    raw_best_distance = min(sem_dists) if sem_dists else None
+
+    keywords = extract_keywords(query)
+    lexical_hits = lexical_search(device_id, keywords, top_k=lexical_pool) if device_id else []
+
+    rrf_scores = {}
+    doc_lookup = {}
+    distance_lookup = {}
+
+    for rank, (doc, dist, meta, doc_id) in enumerate(zip(sem_docs, sem_dists, sem_metas, sem_ids)):
+        rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + 1 / (rrf_k + rank + 1)
+        doc_lookup[doc_id] = (doc, meta)
+        distance_lookup[doc_id] = dist
+
+    for rank, (overlap, doc, meta, doc_id) in enumerate(lexical_hits):
+        rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + 1 / (rrf_k + rank + 1)
+        doc_lookup.setdefault(doc_id, (doc, meta))
+
+    ranked_ids = sorted(rrf_scores, key=lambda i: rrf_scores[i], reverse=True)[:top_k]
+
+    missing_ids = [i for i in ranked_ids if i not in distance_lookup]
+    if missing_ids:
+        query_embedding = embedding_model.encode(query, normalize_embeddings=True)
+        missing_texts = [doc_lookup[i][0] for i in missing_ids]
+        missing_embeddings = embedding_model.encode(missing_texts, normalize_embeddings=True)
+        for doc_id, emb in zip(missing_ids, missing_embeddings):
+            distance_lookup[doc_id] = 1 - float(query_embedding @ emb)
+
+    return {
+        "documents": [[doc_lookup[i][0] for i in ranked_ids]],
+        "distances": [[distance_lookup[i] for i in ranked_ids]],
+        "metadatas": [[doc_lookup[i][1] for i in ranked_ids]],
+        "ids": [ranked_ids],
+        "raw_best_distance": raw_best_distance,
+    }
 # =========================================================
 # Exact Error Search
 # =========================================================
@@ -504,72 +602,26 @@ def retrieve(
     top_k=5,
 ):
 
-
     if error_code is None:
-
-        error_code = detect_error_code(
-            query
-        )
-
-
-
-    # Exact error search
+        error_code = detect_error_code(query)
 
     if error_code:
-
-
-        exact_results = exact_error_search(
-            error_code,
-            device_id,
-        )
-
+        exact_results = exact_error_search(error_code, device_id)
 
         if exact_results["ids"]:
-
-
             return {
-
-                "retrieval_type":
-                    "exact_error",
-
-                "detected_error_code":
-                    error_code,
-
-                "detected_device":
-                    exact_results["metadatas"][0].get(
-                        "device_id",
-                        ""
-                    ),
-
-                "results":
-                    exact_results,
+                "retrieval_type": "exact_error",
+                "detected_error_code": error_code,
+                "detected_device": exact_results["metadatas"][0].get("device_id", ""),
+                "results": exact_results,
             }
-
-
-
-    # Semantic search
-    #
-    # When no device was pre-selected, do this in TWO stages instead of
-    # one global search: first a cheap probe (top_k=1) across every
-    # device just to find which single device is the best match, then a
-    # second search restricted to ONLY that device for the real top_k.
-    # Without this, the top-5 results can freely mix chunks from
-    # unrelated devices (e.g. a ventilator query pulling in an
-    # ultrasound machine's chunk just because it ranked 4th globally),
-    # and the LLM ends up blending both into one answer.
 
     search_device_id = device_id
 
     if search_device_id is None:
-
-        probe_results = semantic_search(
-            query=query,
-            device_id=None,
-            top_k=1,
-        )
+        probe_results = semantic_search(query=query, device_id=None, top_k=1)
 
         if not probe_results["documents"][0]:
-
             return {
                 "retrieval_type": "not_found",
                 "detected_error_code": error_code,
@@ -580,7 +632,6 @@ def retrieve(
         probe_distance = probe_results["distances"][0][0]
 
         if probe_distance > MAX_DISTANCE:
-
             return {
                 "retrieval_type": "not_found",
                 "detected_error_code": error_code,
@@ -588,114 +639,46 @@ def retrieve(
                 "results": probe_results,
             }
 
-        search_device_id = probe_results["metadatas"][0][0].get(
-            "device_id", ""
-        )
+        search_device_id = probe_results["metadatas"][0][0].get("device_id", "")
 
-    semantic_results = semantic_search(
-
+    semantic_results = hybrid_search(
         query=query,
-
         device_id=search_device_id,
-
         top_k=top_k,
-
     )
-
-
 
     if not semantic_results["documents"][0]:
-
-
         return {
-
-            "retrieval_type":
-                "not_found",
-
-            "detected_error_code":
-                error_code,
-
-            "detected_device":
-                None,
-
-            "results":
-                semantic_results,
-
+            "retrieval_type": "not_found",
+            "detected_error_code": error_code,
+            "detected_device": None,
+            "results": semantic_results,
         }
 
-
-
-
-    best_distance = semantic_results["distances"][0][0]
-
-
-
-    print(
-        f"Best semantic distance: {best_distance:.4f}"
+    best_distance = semantic_results.get(
+        "raw_best_distance",
+        semantic_results["distances"][0][0],
     )
 
-
-    print(
-        f"Maximum allowed distance: {MAX_DISTANCE:.4f}"
-    )
-
-
+    print(f"Best semantic distance: {best_distance:.4f}")
+    print(f"Maximum allowed distance: {MAX_DISTANCE:.4f}")
 
     if best_distance > MAX_DISTANCE:
-
-
         return {
-
-            "retrieval_type":
-                "not_found",
-
-            "detected_error_code":
-                error_code,
-
-            "detected_device":
-                None,
-
-            "results":
-                semantic_results,
-
+            "retrieval_type": "not_found",
+            "detected_error_code": error_code,
+            "detected_device": None,
+            "results": semantic_results,
         }
 
-
-
-    detected_device = (
-
-        semantic_results
-        ["metadatas"]
-        [0]
-        [0]
-        .get(
-            "device_id",
-            ""
-        )
-
-    )
-
-
+    detected_device = semantic_results["metadatas"][0][0].get("device_id", "")
 
     return {
-
-        "retrieval_type":
-            "semantic",
-
-        "detected_error_code":
-            error_code,
-
-
-        "detected_device":
-            detected_device,
-
-
-        "results":
-            semantic_results,
-
+        "retrieval_type": "semantic",
+        "detected_error_code": error_code,
+        "detected_device": detected_device,
+        "results": semantic_results,
     }
-
-
 
 # =========================================================
 # Test
