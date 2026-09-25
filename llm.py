@@ -6,6 +6,8 @@ import time
 from dotenv import load_dotenv
 from groq import Groq, RateLimitError
 
+from prompts import SYSTEM_PROMPT, build_user_prompt
+
 
 # =========================================================
 # Configuration
@@ -61,32 +63,62 @@ def truncate_speech_text(text, limit=180):
 
 
 # =========================================================
-# Call Groq with automatic retry on a transient rate limit
+# Call Groq with automatic retry
+#
+# Handles two distinct failure modes with one retry loop:
+#   - RateLimitError from the Groq client (transient, free-tier TPM caps)
+#   - A "successful" response with empty content (occasionally the model
+#     returns finish_reason without usable text)
+#
+# NOTE: this replaces the previous version of llm.py, which defined
+# call_groq_with_retry twice — once at module level (handling only
+# RateLimitError) and again, shadowing it, inside generate_answer()
+# (handling only empty content). Neither retried on both failure
+# modes. This single version retries on either.
 # =========================================================
 
-def call_groq_with_retry(messages, max_retries=3, wait_seconds=3):
-    """
-    Calls the Groq chat completion endpoint, retrying automatically if
-    the free-tier rate limit (tokens-per-minute) is hit. The API's own
-    error message typically asks for only a couple of seconds' wait, so
-    a short fixed delay is enough — this just prevents a single busy
-    moment from crashing a live demo or a batch evaluation run.
-    """
-    for attempt in range(max_retries):
+def call_groq_with_retry(
+    messages,
+    max_retries=2,
+    wait_seconds=1.5,
+):
+    last_error = None
+    for attempt in range(max_retries + 1):
         try:
-            return client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
                 temperature=0.2,
+                max_completion_tokens=1200,
+                reasoning_effort="low",
             )
+            finish_reason = response.choices[0].finish_reason
+            content = response.choices[0].message.content
+
+            # DEBUG:
+            print(
+                f"[DEBUG] attempt={attempt} finish_reason={finish_reason} "
+                f"content_len={len(content) if content else 0}"
+            )
+
+            if content and content.strip():
+                return content.strip()
+            last_error = f"Empty content, finish_reason={finish_reason}"
+
         except RateLimitError:
-            if attempt == max_retries - 1:
-                raise
+            last_error = "Rate limit hit"
             print(
                 f"[INFO] Groq rate limit hit — waiting {wait_seconds}s "
-                f"before retry {attempt + 1}/{max_retries - 1}..."
+                f"before retry {attempt + 1}/{max_retries}..."
             )
+        except Exception as error:
+            last_error = str(error)
+            print(f"[DEBUG] attempt={attempt} exception: {last_error}")
+
+        if attempt < max_retries:
             time.sleep(wait_seconds)
+
+    raise RuntimeError(f"Groq call failed after retries: {last_error}")
 
 
 # =========================================================
@@ -98,119 +130,34 @@ def generate_answer(
     context,
     device=None,
 ):
+    system_prompt = SYSTEM_PROMPT
+    user_prompt = build_user_prompt(
+        query=query,
+        device=device,
+        context=context,
+    )
 
-    system_prompt = """
-You are Fixora, a technical maintenance assistant.
-
-Your job is to answer the user's question using only the
-provided service-manual evidence.
-
-Rules:
-
-1. Use only the provided manual evidence.
-
-2. Do not invent causes, procedures, measurements, or steps.
-
-3. If the manual evidence is insufficient, clearly say that.
-
-4. Preserve technical terminology from the manual.
-
-5. Preserve the order and relationships found in the provided evidence.
-Do not invent a troubleshooting priority or sequence unless the manual
-explicitly provides one.
-
-6. Mention the manual page and section when available.
-
-7. Do not claim something is confirmed unless the evidence confirms it.
-
-8. If the manual gives multiple possible causes, present them as possibilities.
-
-9. Keep the answer practical and concise, but do not add procedural wording
-that is not present in the evidence.
-
-10. Do not add an "order of checks", priority, diagnosis, or recommendation
-unless that ordering is explicitly supported by the provided evidence.
-
-11. If multiple retrieved chunks describe different possible causes for the
-same symptom, present them as separate possible causes without ranking them.
-
-12. Do not tell the user to check causes "in turn", "first", "next", or in any
-sequence unless the manual explicitly provides that sequence.
-
-13. End the answer after presenting the supported causes, actions, and references.
-Do not add a concluding instruction unless that instruction is explicitly present
-in the manual evidence.
-
-14. Return valid JSON only with exactly these two keys:
-
-{
-  "display_answer": "Full detailed answer for the screen. Markdown is allowed.",
-  "speech_answer": "One or two short, COMPLETE spoken sentences, totaling under 170
-  characters. Never start a sentence you cannot finish within that budget — if the
-  full explanation does not fit, mention only the single most important cause and
-  action. Plain words only — no markdown, no symbols such as =, -, (), /, :, or *.
-  Write everything as natural words instead (e.g. 'means' instead of '=')."
-}
-
-The speech_answer must communicate the same supported conclusion as the
-display_answer.
-
-If the evidence includes DANGER, WARNING, or CAUTION, mention that first
-in speech_answer.
-
-Do not invent information that is not supported by the evidence.
-"""
-
-    user_prompt = f"""
-USER QUESTION:
-{query}
-
-DEVICE INFORMATION:
-{device}
-
-SERVICE MANUAL EVIDENCE:
-{context}
-
-Answer the question using only the evidence above.
-
-Return raw JSON only.
-"""
-
-    import time
-
-    MAX_RETRIES = 2
-
-    def call_groq_with_retry(system_prompt, user_prompt):
-        last_error = None
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                response = client.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=0.2,
-                    max_completion_tokens=1200,
-                    reasoning_effort="low",
-                )
-                finish_reason = response.choices[0].finish_reason
-                content = response.choices[0].message.content
-
-                # DEBUG:
-                print(f"[DEBUG] attempt={attempt} finish_reason={finish_reason} "
-                    f"content_len={len(content) if content else 0}")
-
-                if content and content.strip():
-                    return content.strip()
-                last_error = f"Empty content, finish_reason={finish_reason}"
-            except Exception as error:
-                last_error = str(error)
-                print(f"[DEBUG] attempt={attempt} exception: {last_error}")
-            time.sleep(1.5)
-        raise RuntimeError(f"Groq call failed after retries: {last_error}")
-
-    raw = call_groq_with_retry(system_prompt, user_prompt)
+    try:
+        raw = call_groq_with_retry(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
+    except RuntimeError as error:
+        # -------------------------------------------------
+        # Guard against total call failure (all retries
+        # exhausted), not just an empty-but-successful call.
+        # -------------------------------------------------
+        fallback_text = (
+            "The assistant did not return a response for this query. "
+            "Please try rephrasing the question or asking again."
+        )
+        print(f"[DEBUG] generate_answer giving up: {error}")
+        return {
+            "display_answer": fallback_text,
+            "speech_answer": fallback_text,
+        }
 
     # -----------------------------------------------------
     # Guard against a genuinely empty completion from the API

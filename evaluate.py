@@ -174,7 +174,7 @@ def evaluate_retrieval():
 
         result = retrieve(
             query=case["query"],
-            top_k=5,
+            top_k=8,
         )
 
         actual_type = result.get(
@@ -387,7 +387,7 @@ def evaluate_answers():
 
         rag_result = answer_query(
             query=case["query"],
-            top_k=5,
+            top_k=8,
         )
         print("Context sent to LLM:")
         print(rag_result.get("context", "")[:1500])

@@ -58,6 +58,36 @@ def fix_medical_terms(text):
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
+# Words that commonly precede a stray number in service-manual prose
+# without that number being an actual device error/fault code (page
+# refs, section numbers, figure numbers, model/part numbers, etc.).
+# With dozens of manuals in the corpus, a bare "code 5" or "fault 12"
+# shows up constantly as ordinary text -- this blocklist filters
+# those out before a match is accepted as a real error code. Keep
+# this in sync with the identical list in retrieval.py.
+ERROR_CODE_FALSE_POSITIVE_CONTEXT = {
+    "page", "pg", "p", "chapter", "ch", "section", "sec",
+    "table", "tbl", "figure", "fig", "step", "item", "note",
+    "rev", "revision", "version", "ver", "model", "type",
+    "part", "no", "number", "appendix", "volume", "vol",
+    "manual", "chart", "diagram", "row", "column", "col",
+}
+
+
+def _is_false_positive_context(text, match_start):
+    """
+    Look at the word immediately before a candidate error-code match
+    and reject the match if that word is a known false-positive
+    trigger (a page/section/figure/table reference, etc.) rather than
+    genuine error-code language.
+    """
+    preceding = text[:match_start].strip().split()
+    if not preceding:
+        return False
+    context_word = preceding[-1].lower().strip(".,:;()[]-")
+    return context_word in ERROR_CODE_FALSE_POSITIVE_CONTEXT
+
+
 def detect_error_code(text):
     """
     Detect common medical-device error formats.
@@ -67,22 +97,38 @@ def detect_error_code(text):
         ERR37
         Error 37
         Error code 37
-        Code 37
         Fault 37
+        Fault code 37
 
     The current retrieval.py expects the numeric part.
+
+    Deliberately narrower than a naive "any number near the word
+    code" match: across a multi-device, multi-manual corpus, a loose
+    bare "code \\d+" pattern false-positives constantly on page
+    numbers, section numbers, figure numbers, etc., and those false
+    positives get indexed as real error_code metadata -- which then
+    lets exact_error_search() in retrieval.py return the wrong
+    device's chunk for an unrelated query. This version drops the
+    bare "code" pattern entirely (requiring "error"/"fault"
+    specifically) and rejects any match immediately preceded by a
+    reference-style word (see ERROR_CODE_FALSE_POSITIVE_CONTEXT).
     """
     patterns = [
+        r"\berror\s+code\s*[:#]?\s*(\d{1,5})\b",
+        r"\bfault\s+code\s*[:#]?\s*(\d{1,5})\b",
+        r"\berror\s+(\d{1,5})\b",
+        r"\bfault\s+(\d{1,5})\b",
         r"\bE[-\s]?(\d{1,5})\b",
         r"\bERR[-\s]?(\d{1,5})\b",
-        r"\berror\s+code\s+(\d{1,5})\b",
-        r"\berror\s+(\d{1,5})\b",
-        r"\bcode\s+(\d{1,5})\b",
-        r"\bfault\s+(\d{1,5})\b",
     ]
     for pattern in patterns:
-        match = re.search(pattern,text,flags=re.IGNORECASE,)
-        if match:
+        for match in re.finditer(
+            pattern,
+            text,
+            flags=re.IGNORECASE,
+        ):
+            if _is_false_positive_context(text, match.start()):
+                continue
             return match.group(1)
     return None
 
@@ -374,17 +420,35 @@ def extract_generic_chunks(
     pdf_path,
     device_info,
     pages=None,
+    exclude_pages=None,
 ):
     """
     Generic fallback parser.
 
     If pages are provided, reuse them.
     This avoids re-reading OCR PDFs.
+
+    exclude_pages: optional set/collection of page numbers to skip
+    entirely. Used to avoid double-chunking pages that a specialized
+    parser (e.g. the Servo malfunction/action troubleshooting parser)
+    has already turned into focused, fault-aware chunks -- without
+    this, the same troubleshooting content ends up indexed twice: once
+    as a tight, well-scoped chunk and once again as a diluted generic
+    chunk, and the two compete against each other in retrieval for no
+    benefit.
     """
     if pages is None:
         pages = extract_pdf_text(
             pdf_path
         )
+
+    if exclude_pages:
+        pages = [
+            page_data
+            for page_data in pages
+            if page_data["page"] not in exclude_pages
+        ]
+
     chunks = []
     max_chars = 1200
 
@@ -547,7 +611,7 @@ def extract_servo_malfunction_action_chunks(pages, manual):
 
     Verified directly against the OCR output: this manual (Servo
     Ventilator 900 C/D/E, 1994 edition) has NO numbered error codes
-    anywhere — "error code", "technical error", and "recommended action"
+    anywhere -- "error code", "technical error", and "recommended action"
     do not appear in the document at all. Troubleshooting is instead a
     two-column table: a "Malfunction" heading followed by a list of
     symptom descriptions, then an "Action" heading followed by the
@@ -561,8 +625,18 @@ def extract_servo_malfunction_action_chunks(pages, manual):
     precise pairing isn't safe, so the whole page's malfunctions and
     actions are kept together as one combined chunk instead of risking
     an incorrect malfunction-to-action link.
+
+    Returns:
+        chunks: list[dict] -- the fault-aware troubleshooting chunks
+        pages_used: set[int] -- page numbers that were successfully
+            parsed into a Malfunction/Action chunk. Callers should
+            exclude these pages from the generic fallback parser to
+            avoid indexing the same troubleshooting content twice
+            (once here as a focused chunk, once again as a diluted
+            generic chunk that competes with it in retrieval).
     """
     chunks = []
+    pages_used = set()
 
     for page in pages:
         page_number = page["page"]
@@ -614,6 +688,10 @@ def extract_servo_malfunction_action_chunks(pages, manual):
 
         if not malfunctions or not actions:
             continue
+
+        # This page produced at least one usable chunk below, so mark
+        # it as "used" -- the generic parser should skip it.
+        pages_used.add(page_number)
 
         if len(malfunctions) == len(actions):
             for malfunction, action in zip(malfunctions, actions):
@@ -678,7 +756,7 @@ def extract_servo_malfunction_action_chunks(pages, manual):
                     }
                 )
 
-    return chunks
+    return chunks, pages_used
 
 def extract_philips_troubleshooting_chunks(
     manual,
@@ -982,16 +1060,7 @@ def build_all_chunks():
                     f"  Specialized parser found "
                     f"{len(specialized_chunks)} error-code chunks."
                 )
-                print(
-                    "  Also running generic parser "
-                    "for full document coverage..."
-                )
-                generic_chunks = extract_generic_chunks(
-                    pdf_path,
-                    device_info,
-                    pages=pages,
-                )
-                malfunction_action_chunks = (
+                malfunction_action_chunks, troubleshooting_pages = (
                     extract_servo_malfunction_action_chunks(
                         pages,
                         MANUALS["servo_ventilator"],
@@ -999,7 +1068,20 @@ def build_all_chunks():
                 )
                 print(
                     f"  Malfunction/Action parser found "
-                    f"{len(malfunction_action_chunks)} troubleshooting chunks."
+                    f"{len(malfunction_action_chunks)} troubleshooting chunks "
+                    f"across {len(troubleshooting_pages)} page(s)."
+                )
+                print(
+                    "  Also running generic parser for full document "
+                    "coverage (skipping pages already covered by the "
+                    "Malfunction/Action parser to avoid duplicate, "
+                    "diluted chunks)..."
+                )
+                generic_chunks = extract_generic_chunks(
+                    pdf_path,
+                    device_info,
+                    pages=pages,
+                    exclude_pages=troubleshooting_pages,
                 )
                 chunks = (
                     specialized_chunks
@@ -1029,7 +1111,14 @@ def build_all_chunks():
                     "  Also running generic parser "
                     "for full document coverage..."
                 )
-                generic_chunks = extract_generic_chunks(pdf_path,device_info,)
+                troubleshooting_pages = {
+                    chunk["page"] for chunk in specialized_chunks
+                }
+                generic_chunks = extract_generic_chunks(
+                    pdf_path,
+                    device_info,
+                    exclude_pages=troubleshooting_pages,
+                )
                 chunks = specialized_chunks + generic_chunks
 
             elif ( "sc6002xl" in MANUALS and pdf_path.name ==
@@ -1055,7 +1144,14 @@ def build_all_chunks():
                     "  Also running generic parser "
                     "for full document coverage..."
                 )
-                generic_chunks = extract_generic_chunks(pdf_path,device_info,)
+                troubleshooting_pages = {
+                    chunk["page"] for chunk in specialized_chunks
+                }
+                generic_chunks = extract_generic_chunks(
+                    pdf_path,
+                    device_info,
+                    exclude_pages=troubleshooting_pages,
+                )
                 chunks = specialized_chunks + generic_chunks
             else:
                 print("  Using generic parser...")
