@@ -1,0 +1,3319 @@
+--- Page 1 ---
+SIEMENS
+
+--- Page 2 ---
+Contents
+
+Introduction. . . 2-2 2 2 ee ee ee
+Principle diagram
+
+Pneumatic unit
+Gas flow through the ventilator... .. ~~
+Gas supply
+Bellows and spring assembly
+Gas supply unit
+Ogell. 2... ee
+Relief/safety valve and working
+pressuremanometer...........-.
+Flowtransducer. ... 2.1... eee
+Pressure transducer
+Inspiratory valve and step motor... ... .
+Expiratory valve and pull magnet... . . .
+Non-returnvalve.. 2... 227. ee
+
+Transducer interface... ...-.-.-.-
+
+Electronic unit
+Principle ofoperation. ...........-
+Reference level generation
+Regulation ofinspiration. .........
+Timing
+Monitoring
+Regulation of expiration
+Voltagesupply. ........-.----
+Input/output.. 2... 2.2 ee
+
+Disassembling
+
+Disassembling the pneumaticunit. .... .
+Disassembling the electronic unit
+Replacement of step motor assembly
+
+andpullmagnet........--...--
+Replacement of power supply unit... . . .
+Replacement of safety catches... ....- .
+Replacement of flow transducer... ... .
+
+Ad ijustments
+Adjustment of metersZlandZ2.......
+Adjustment of valve arm
+Replacement and adjustment ofR5. .... .
+Removing the front panelknobs. . ... . ~
+Front panel potentiometer adjustments. . . .
+Troubleshooting... .. 2... ---2 005
+Index. 2 2 ee
+Blockdiagram. .. 2... .-----0-05
+
+About this manual
+
+All parts in the Servo Ventilator are comprised
+by a spare part exchange system.
+
+Your local Siemens representative supplies
+factory calibrated and tested plug-in circuit
+boards as well as other spare parts indicated in
+the spare parts list. When exchanging spare
+parts, always state serial number of the appa-
+ratus and fault-symptom.
+
+—____—___——,
+
+Note that the Operating Manuals an indis-
+pensable complement to the Service Manual for
+proper servicing.
+
+NOTE. For the service work on the Servo
+Ventilator, we recommend the use of Siemens-
+Elema Service Case.
+
+To the responsible service personnel
+
+The contents of this document are not binding.
+If any significant difference is found between
+the product and this document, please contact
+Siemens for further information.
+
+We reserve the right to modify products with-
+out amending this document or advising the
+
+user.
+
+We recommend using authorized Siemens
+personnel for all service and repairs and the use
+of Siemens-Elema exchange parts or genuine
+spare parts. Siemens will not otherwise assume
+responsibility for the materials used, the work
+performed or any possible consequences of
+same.
+
+This Service Manual is intended for Servo Ventilator 900 C, D and E.
+
+When reading the manual, please note:
+
+Sv 900 C SV 900 D
+Read all information
+
+Do not read
+information outlined
+in red
+
+--- Page 3 ---
+Progen information program
+
+‘This Service Manual is a part oy comprehensive i ine
+formation program for Servo Ventilator 900 C/D/B_
+‘The program is planned to contain the following:
+
+Promotional and Scientific Publications
+
+‘Brochure Servo Ventilator |} Application Product Leaflet Reprints
+Concept |. Brochures: -
+intensive Care,
+Anesthesia,
+Transportation
+
+Operating and Service Instructions _
+
+perating Manual Brief | ‘| Wall Diagram
+| Operating for Cleaning
+‘Instructions 7
+
+Circuit Diagram
+
+Product Training Material
+
+Training | | Advisory Booklet | Slide Series. : “lam breathing | The Patient's
+Instructions. - | for instructors including through a | ABSee”
+- Textbook a ventilator”
+
+Cards and Poster
+-| Film and Booklet
+
+Front Panel —
+~~ Flip-chart
+
+Panel Block — Trainee’s Set Video programs,
+Video guide,
+
+Video news
+
+--- Page 4 ---
+Introduction
+
+Pneumatic unit
+
+Electronic unit SV 900 C
+
+Electronic unit SV 900 D
+
+Electronic unit SV 900 E
+
+Principle of operation
+
+The Servo Ventilator 900 C/D/E consists of two sepa-
+rate units.
+
+The pneumatic unit comprises the gas conduction
+system with two pressure transducers, two flow
+transducers and two servo valves.
+
+Each transducer, continuously delivers its actual
+value to the electronic unit.
+
+The servo valves are used as CONTROLLING ELE-
+MENTS for the control of inspiratory and expiratory
+gas conduction.
+
+The electronic unit comprises three controlling
+systems, two for regulation of inspiration and one for
+regulation of expiration.
+
+The three controlling systems will be in use, one at
+atime, depending on the TIMING control and the se-
+lected ventilation MODE.
+
+--- Page 5 ---
+TRANSDUCER
+
+CONTROLLED SYSTEM
+
+CONTROLLING
+ELEMENT
+
+& AMPLIFIERS
+
+‘ > SUBTRACTOR
+
+(WITH SERVO)
+
+POSITIONING
+SIGNAL
+
+ACTUAL
+VALUE
+
+CONVERTER
+
+DESIRED
+VALUE
+
+REFERENCE
+
+| “COMPENSATOR”
+Le
+
+ERROR
+SIGNAL
+
+“ERROR
+Lcaccutator” |
+
+LEVEL
+
+Feedback control
+(=regulation system)
+
+Each of the controlling systems comprises its PID-
+controller, (P=Proportional action, [=Integral action
+and D=Derivative action), as shown in the picture.
+
+The CONTROLLING ELEMENT will be positioned by
+the PID-CONTROLLER (output).
+
+P-action gives a continuous basic positioning.
+(Thereby the ACTUAL VALUE will correspond to the
+DESIRED VALUE).
+
+J-action gives a slowly varying positioning com-
+pensation for small long time error (in the ACTUAL
+VALUE).
+
+J
+PID — CONTROLLER
+
+D-action gives a speed-up positioning reaction at
+fast changes (in the ACTUAL VALUE).
+
+The actual value from the TRANSDUCER in use is
+compared with the desired value from REFERENCE
+LEVEL. The difference between the ACTUAL VALUE
+and the DESIRED VALUE results in an ERROR SIGNAL,
+which is converted to a positioning signal for the
+CONTROLLING ELEMENT (inspiratory and expiratory
+valve respectively). The valve in use will then be
+moved into such a position that the error will be cor-
+rected. In this way, the desired value is maintained
+independently of changes in the airways and the
+lungs.
+
+--- Page 6 ---
+Principle diagram
+
+@
+Reference level
+
+The main block REFERENCE LEVEL generates the
+DESIRED VALUE for each regulating system, corre-
+sponding to the settings on the front panel.
+
+t2]
+Regulation of inspiration
+
+The regulation of inspiration is done by means of the
+FLOW SERVO LOOP in the followin, g modes: VOL.
+CONTE: .. VOL. CONTR.+SI
+
+The actual value for the onTO ler in this loop
+comes from the FLOW TRANSDUCER in the inspiratory
+channel.
+
+The regulation of inspiration is done by means of
+the PRESSURE SERVO LOOP in the followin;
+
+modes:
+Spore ane:
+
+oe actual sala for the controller in this Toop
+comes from the PRESSURE TRANSDUCER in the
+inspiratory channel.
+
+The ERROR SIGNAL from the controller in use (flow
+or pressure), is fed to a converter, common to both
+inspiratory servo loops, which delivers the valve
+control signal to the inspiratory valve (positioning).
+
+For both servo loops, the inspiratory valve is the
+controlling element in regulation of inspiration.
+
+Timing
+
+Reference timing pulses GIARTSINY GYGIE LOCK,
+INSP.TIME and EXP.TIME) are generated in this main
+block.
+
+The TIMING gets some command variables from the
+front panel settings.
+
+(} = Not valid for SV 900 D
+
+A] : .
+Monitoring
+
+The monitoring of all values that are displayed on
+the panel meters and the digital display takes place
+in this main block.
+
+Some of the readings are compared with preset
+alarm limits and visual and audible alarms are acti-
+vated if the preset limits are exceeded.
+
+The monitoring system is independent of the
+regulating systems.
+
+The pressure limiting system is included in this
+main block.
+
+Regulation of expiration
+
+The regulation of expiration is done by means of the
+PRESSURE SERVO LOOP during expiration in all modes
+when using PEEP.
+
+The actual value for the controller in this
+loop comes from the PRESSURE TRANSDUCER in the
+expiratory channel.
+
+The error signal from the controller is fed to a con-
+verter which delivers the valve control signals for the
+expiratory valve (positioning).
+
+The expiratory valve is the controlling element in
+regulation of expiration.
+
+‘)
+Power supply
+
+The four regulated supply voltages are; +5V, +15V
+and +24V.
+
+@
+Input/output
+
+Output signals are buffered in this main block.
+Some of the functions of the ventilator can be ex-
+ternally controlled via inputs in this block.
+
+seetiws
+ieteiis2
+
+= Not valid for SV 900 E
+
+--- Page 7 ---
+TRANSDUCER
+
+Z —s
+, eo
+INSPIRATORY CHANNEL TO/FROM PATIENT EXPIRATORY CHANNEL
+
+<>
+FLOW FLOW
+TRANSDUCER TRANSDUCER EXP. VALVE FLAP VALVE
+
+Wess. ) mame) (| >
+
+—
+
+6) 02 conc.
+CY
+
+GAS RESERVOIR
+BELLOWS
+
+i) PRESSURE P. pressure NY (Ca
+SaNAL y TRANSDUCER Pow TRANSDUCER} A , YON yRoL
+ay SIGNAL 7 SIGNAL
+
+PNEUMATIC UNIT.
+
+ELECTRONIC UNIT
+
+AIRWAY PRESSURE (I)
+
+PRESSURE
+SERVO LOOP
+
+PRESSURE
+SERVO LOOP
+
+AIRWAY PRESSURE (E)
+
+PEEP LEVEL
+
+CONSTANT INSP
+FLOW PATTERN
+
+INSP. PRESSURE
+EXP. PRESSURE
+
+PRESSURE] fp
+CONTROL
+
+@ uit
+CONTROL
+REFERENCE SIGNALS
+LEVEL REGULATION OF INSPIRATION MONITORING REGULATION OF EXPIRATION
+PC BOARD NO. 4, 5, (7, 8) PC BOARD NO. 5, 6, (7) PC BOARD NO. 1, 4, 5, 6, 7,9 PC BOARD NO. 4
+Tower? 7
+FLOW AND PRESSURE C1, &, UPPER
+CHECK SIGNALS controt| |press.
+SIGNALS signats | exco.
+EXP. TIME
+
+PC BOARD NO. 3, (5, 6, 7)
+START SIMV CYCLE}
+
+C= CLOCK mWlNu.unuiNus tutu
+1 =INSP. TIME S11
+EXP. TIME —— 1 1.
+PAUSE
+
+POWER SUPPLY
+PC BOARD NO. 10 MAINS
+
+>
+
+METER SIGNALS
+
+INPUT/OUTPU
+PC BOARD NO. 8
+
+FRONT PANEL EXTERNAL OUTPUT
+
+VIA CONTROL SIGNALS.
+
+PC BOARD NO. 2 evaKiys
+1982.07.30
+
+(CNS PANEL SETTINGS
+
+[J = Notvalid for Sv 900 D
+
+2 = Not valid for SV 900 E
+
+--- Page 8 ---
+Pneumatic unit
+
+Gas flow through the ventilator
+
+—The gasis filtered
+
+~~ 0, concentration in the gas is
+measured
+
+The gas flowto the patientis  —
+
+measured y WA
+4 / ~The gas supply is regulated so
+7 yy that constant filling volume is
+‘The safety valve opens if the a maintained in the bellows
+bellows is overfilled or if the Jf
+
+pressure in the bellows exceeds
+
+‘approximately 120 cm H,O IN Gas inlets
+
+‘The airway pressure is measured ~
+
+The gas conduction from the
+patient is regulated —
+
+The flap valve prevents
+back flow of gases in
+the expiratory tubing.
+Itis essential for the
+trig function
+
+‘The working pressure is
+mechanically adjusted
+
+From patient: ‘The working pressure is shown
+
+ona manometer
+
+‘The gas flow fromthe —
+
+patient is measured —— The gas conduction to the patient
+
+is regulated
+
+To patient
+
+Amore detailed description of the pneumatic
+unit is found in the Training Instructions
+
+--- Page 9 ---
+Gas supply
+
+The lower gas inlet is used for high pressure gases
+250-700 kPa). The inlet can be connected either via
+Siemens-Elema gas mixer or directly to the hospital
+central gas supply, to gas bottles or to a compressor.
+The upper gas inlet is used for low pressure gases,
+e.g. from an anesthesia circuit or a flowmeter. Nor-
+mally, only one of the two inlets is used at a time.
+In any case, the gases pass a one-way valve, an
+O, cell and a bacteria filter. The bacteria filter remo-
+ves 99.998% of all particles down to a size of 0.3 mic-
+rons.
+
+Flow
+transducers
+
+Non-return
+flap valve
+
+Expiratory
+valve
+
+When an anesthesia vaporizer is used, the gas
+supply unit has a different construction with three
+nipples. For further information, see the Operating
+Manual for the vaporizers.
+
+When the gas is supplied via the high pressure
+inlet, a constant filling volume is obtained in the
+bellows by means of the gas inlet regulatory function
+of a controlled inlet valve. A constant working
+pressure is obtained by the action of the spring as-
+sembly.
+
+Relief/safety valve Bacteria filter
+
+Pressure
+transducers
+
+Inspiratory
+valve
+
+Working pressure
+manometer
+
+Gas connection
+
+Adjustment Inlet valve
+
+handle
+
+--- Page 10 ---
+Pressure Locking
+plate device
+
+Adjustment
+handle
+
+Coil springs
+
+10
+
+Bellows and spring assembly
+
+The bellows are placed in a double coil spring set
+between two metal plates. The lower plate is movable
+and spring tensioned. The upper plate acts as a lid,
+which is firmly positioned above the bellows.
+
+A double coil spring set is arranged to give a constant
+pressure to the bellows, independent of the plate
+position. The pressure is set by the adjustment hand-
+le PRESET WORKING PRESSURE.
+
+--- Page 11 ---
+Gas supply unit (mechanically actuated)
+Bacteria filter
+
+Low
+pressure
+inlet
+
+High
+pressure
+inlet
+
+Lever arm
+Controlled inlet valve (mecanical valve)
+Lever arm_ Gas to bellows
+
+Push rod with
+valve disc
+
+Pressure spring
+
+Silicone rubber seal
+
+Mechanical
+valve
+
+Electromagnetic
+inlet valve
+
+Gas supply unit
+
+The gas supply unit contains an on-demand valve for
+the high pressure gas, a controlled inlet valve, two
+one-way valves, the Oz cell holder and a bacteria fil-
+ter.
+
+Normally, the high pressure inlet is used and the
+bellows are filled through the controlled inlet valve,
+a one-way valve and the bacteria filter.
+
+Mechanically actuated gas supply unit
+
+The pressure plate acts upon the controlled inlet
+valve via the lever arm. Before connecting the gas
+supply, the bellows are empty, the pressure plate in
+top position and the controlled inlet valve open.
+When connecting high pressure gas, the bellows fills,
+the actuating tab on the right edge of the pressure
+plate goes down against the lever arm until the con-
+trolled inlet valve has closed. The pressure plate is
+then in its regulating position, which means that
+during inspiration, gas is continuously fed to the
+bellows. Thus a constant gas volume is kept in the
+bellows when using the high pressure inlet.
+
+When a constant gas flow (from a flowmeter) is
+supplied via the low pressure inlet, excess gas will be
+let out from the bellows by the relief valve (surplus
+function).
+
+--- Page 12 ---
+Gasket
+
+12
+
+Tension
+spring
+
+Inlet from
+y bellows
+
+Outlet to
+inspiratory
+channel
+
+Bacteria filter
+Plastic tube
+
+Working pressure
+manometer
+
+O, cell
+
+The Oz cell used in the ventilator gives an output vol-
+tage proportional to the partial pressure of O2 at the
+cell. At constant sum of barometric pressure and
+WORKING PRESSURE (and constant temperature), the
+output voltage is proportional to the relative O2 CON-
+CENTRATION.
+
+For each O, cell, the variable output will stay at a
+fairly constant level during the life time of the cell
+(approximately 800 000 %xhours).
+
+The output voltage level from the cell is usually
+within 7-15 mV in normal air.
+
+Relief/safety valve and
+working pressure manometer
+
+The working pressure manometer is connected to the
+safety valve via a plastic tube. A bacteria filter pro-
+tects the manometer from contamination.
+
+--- Page 13 ---
+The reliefisafety valve may be opened in two ways.
+Firstly, if the bellows tend to overfill, a metal rod will
+push the lever to let out excess volume (surplus func-
+_ tion). Secondly, if the working pressure exceeds
+approximately 120 cm H20, the valve will let out
+excess pressure (safety function).
+
+Safety function
+
+7 sem = Not valid for SV 900 E ,
+- hi
+
+--- Page 14 ---
+Measuring,
+channel
+
+Resistor
+
+To preamplifier
+
+14
+
+Main channel
+
+Strain gauge
+
+Wire mesh net
+
+Gas flow
+
+Flow transducer
+
+The inspiratory and expiratory flow transducers
+have the same construction. The gas flows through
+the flow transducer in two parallel channels, one
+large main channel, and one small measuring
+channel.
+
+The main channel is fitted with a wire mesh net,
+the resistance of which causes a certain proportion of
+the gas to flow through the measuring channel.
+
+The flow through, and the differential pressure
+across, the measuring channel acts on a small metal
+disc ("flag”), which, via a metal pin presses on a
+small semiconductor strain gauge. This consists of
+diffused resistors on both sides of an elastic silicone
+rod. The resistors are connected as a part ofa
+Wheatstone bridge, the other part of which is situ-
+ated on the TRANSDUCER INTERFACE board (PC 765).
+
+The more flow in the channel, the higher the pres-
+sure on the strain gauge. The change in resistance in
+the Wheatstone bridge, is converted to a correspond-
+ing signal voltage.
+
+The output signal from the flow preamplifier is a
+non-linear function of the flow. The flow preamplifier
+signals are linearized on PC board 5 (inspiration)
+and on PC board 4 (expiration), respectively.
+
+Aresistor, 220 Ohms, 6W, is moulded into the
+transducer and is used for heating of the expiratory
+flow transducer. The transducer is heated to approxi-
+mately 60°C (140°F) to prevent condensation of water
+vapour. The inspiratory flow transducer has the
+same resistor, but since it is not connected to any
+voltage, it will not be heated.
+
+If water should condense in the expiratory flow
+transducer, the resistance of the wire mesh net in-
+creases. Thus the output signal will increase. This
+can be seen on the meter EXPIRED MINUTE VOLUME,
+or on the digital display, as an increased reading.
+The accumulation of medicaments, mucus and
+secretions in the expiratory flow transducer gives
+the same result.
+
+For details on cleaning and calibration of the flow
+transducer, see the chapters Routine cleaning and
+Calibration in the Operating Manual.
+
+--- Page 15 ---
+Strain
+gauge
+
+preamp-
+lifier
+
+Bacteria filter
+
+Airway pressure
+
+Pressure transducer
+
+The pressure transducers in the inspiratory and expi-
+ratory channels are of the same type.
+
+The gas pressure acts upon a silicone rubber mem-
+brane into which is moulded a strain gauge of the
+same type as in the flow transducers. The strain
+gauge resistors are connected as a part of a Wheat-
+stone bridge, the other part of which is situated on
+the TRANSDUCER INTERFACE board (PC 765).
+
+The output signal voltage from the pressure
+amplifier is proportional to the gas pressure.
+
+When replacing the pressure transducers, the
+preamplifier zero and gain have to be adjusted. For
+details, see the chapter Calibration in the Operating
+Manual.
+
+Each pressure transducer is connected to its chan-
+nel via a plastic tube and a bacteria filter. The bac-
+teria filter and the plastic tube for the inspiratory
+channel should be replaced after every 1000 hours of
+operation.
+
+The bacteria filter and the plastic tube for the ex-
+piratory channel should be replaced after every
+patient.
+
+15
+
+--- Page 16 ---
+Fixed arm
+
+Silicone rubber
+
+valve tube
+Movable lever arm Ball
+bearing
+End position signal
+to PC board 6 Step motor
+\ assembly
+Cam
+
+Step motor
+
+Ball bearing
+travelling in slot
+
+Screen on cam breaks light between lamp and
+photo detector
+
+PC board with lamps
+
+PC board with photo detectors
+
+16
+
+Inspiratory valve and step motor
+
+The inspiratory valve is operated by the step motor
+via the logarithmically slotted cam and the lever
+arm.
+
+When the step motor is in operation, a ball bearing
+at the end of the lever arm travels in the slot.
+
+The lever arm squeezes the inspiratory valve tube
+against a fixed arm. The change in the flow is
+approximately 10% for each step of the step motor,
+independent of the motor position as long as the air-
+way pressure is unchanged.
+
+The step motor has four coils which are fed with
+positioning signals from PC board 6 in the electronic
+unit.
+
+When the mains voltage is switched off (or at
+mains voltage failure) the step motor will always
+end up with the inspiratory valve in fully opened
+position.
+
+The maximum speed of the step motor is about 480
+steps/second and the time elapsing from fully open to
+fully closed position is approximately 0.1 second.
+
+The plastic case contains two PC boards, one with
+two miniature lamps and the other with two photo
+detectors. When the step motor reaches either end
+position of the cam slot, the light beam between the
+lamp and the photo detector is interrupted by the
+cam screen. This will generate an end position signal
+for the electronic circuits on PC board 6.
+
+The position of the lamps in relation to the screen
+is of the utmost importance. If the lamps by any
+chance come out of position, this will cause the step
+motor to ”rattle” because end positions are not pro-
+perly indicated. The same symptom occurs if a lamp
+is damaged.
+
+--- Page 17 ---
+Movable lever arm
+
+Ball bearing
+
+Fixed arm
+
+Silicone rubber
+valve tube
+
+From PC board 4
+
+Pull magnet coil
+
+Coil spring
+
+Expiratory valve and pull magnet
+
+The expiratory valve comprises a pull magnet acting
+ona lever arm which squeezes a silicone rubber valve
+tube against a fixed arm. The valve will close when
+the magnet is activated. When the supply current to
+the magnet is removed, the valve will open fully be-
+cause of the spring. This ensures that the patient can
+always exhale through the ventilator at voltage
+failure.
+
+The expiratory valve is controlled by the signals
+from the electronic unit. At a PEEP setting, the in-
+formation from the pressure transducer in the
+expiratory channel regulates the valve position
+during expiration.
+
+Non-return valve
+
+The purpose of the flap valve is to prevent air from
+entering the patient circuit through the expiratory
+channel.
+
+The valve is a vital part of the triggering function
+since a patient trig is sensed in the expiratory chan-
+nel (pressure drop).
+
+17
+
+--- Page 18 ---
+Jo oa ncn
+fw ram ioe —— a fae
+ao __| iow wave | frst aco eae aie
+ere fa fi 0 ie
+we —J YOUrAGe taut)
+reson | sur vas
+— JL Gales] | | me
+02 com " ee nw] wag We se ‘SHEP. surway " " iM y Pat
+son pence 7 a | mat] [oe Pwo ess acct |i [oy Salt ff
+MDCATON al ‘oe cons OUR worn TE} AMPUFIER MONITOR bead
+L fi gems va eo
+
+mad ES mop ny mda ms mdr
+
+This PC board comprises the preamplifiers for INSP.
+FLOW and EXP. FLOW, the amplifiers for AIRWAY
+PRESSURE (1), AIRWAY PRESSURE (E) and 02
+CONCENTRATION.
+
+The INSP.FLOW WORKING POINT INDICATOR,
+EXP.FLOW WORKING POINT INDICATOR and the 6.8V
+REGULATOR and its 6.8V REGULATOR MONITOR are
+also included on this PC board.
+
+The CALIBRATION POTENTIOMETERS and the CALI-
+BRATION SWITCH are situated on this PC board.
+
+On failure in the 6.8V REGULATOR indicated by the
+6.8V REGULATOR MONITOR block, the block AIRWAY
+PRESSURE (I) AMPLIFIER will be influenced to generate
+a high AIRWAY PRESSURE (1) signal which will result in
+UPPER PRESSURE ALARM condition.
+
+18
+
+--- Page 19 ---
+Electronic unit - Principle of operation
+
+The electronic unit contains the various electronic
+circuits for regulation and monitoring. A general
+description is found in chapter Introduction and the
+following chapter comprises a detailed description of
+the PC boards included in the electronic unit.
+
+--- Page 20 ---
+Electronic unit —- Reference level generation
+
+General
+The front panel settings are converted to reference
+level signals for the regulating systems.
+
+--- Page 21 ---
+RAaraticns
+1 a f
+PeTavOr
+
+LEVEL
+GENERATION
+
+LEVEL
+GENERATION
+
+PRESSURE
+REF. LEVEL
+
+0
+INSP. MINUTE
+
+@
+
+REF. LEVEL
+
+—
+
+°
+
+REE
+LeveL
+Aowst. |
+
+FILLING FLOW
+REF. LEVEL
+
+on
+
+5
+
+Flow v
+PATIERN
+
+Bi
+ACCELERATING
+
+Constant | psf 28¢__ CONSTANT FLOW PATTERN
+
+Description of block diagram
+The text also refers to the circuit diagrams.
+
+Insp. press. level generation
+(PC board no 5)
+
+>
+wer PRESS INSP PRESS. LEVEL The input signal is the command value INSP. PRESSU-
+
+RE LEVEL SET (0—2.5V) from the front panel knob
+INSP. PRESS. LEVEL ABOVE PEEP (0-100 cm H20). The
+command value can be overruled by an input voltage
+(0-2.5V) supplied to the rear panel CONTROL TERMI-
+NAL (N28:25), INSP. PRESS. EXTERNAL
+
+7
+Peer
+v peetevel The output (V21:8) represents the INSP. PRESS. LE-
+
+VEL ABOVE PEEP (0-100 cm H20).
+
+Peep level generation (PC board no 4)
+The input signal is the command value PEEP LEVEL
+
+ois cee GAS CHANGE PRESS. LEVEL SET (0—-2.5V) from the front panel knob PEEP (-10 —
+
++50 cm H20): The command value can be overruled
+by an input voltage (0-2.5V) supplied to the rear
+panel CONTROL TERMINAL (N28:13), PEEP LEVEL,
+EXTERNAL.
+
+The output (V6:8) represents the value PEEP LEVEL
+
+GAS CHANGE (LO) (-10 — + 50 cm H20).
+
+Gas change pressure ref. level
+(PC board no 5)
+The input signal GASCHANGE (LO) comes from the
+
+190 _ sp, wmure vou front panel pushbutton GAS CHANGE:
+yume REF, LEVEL As long as the pushbutton is depressed a reference
+
+value (V17:8 via V2), corresponding to a constant
+inspiratory pressure level (+20 cm H20), will be
+fed to the block INSP. PRESSURE REF. LEVEL (V18:3).
+
+Insp. minute volume ref. level
+(PC board no 8)
+
+This block is used for generation of a reference level.
+
+N20K 2:
+ye ee The normally (+5V), constant output value INSP.
+
+MINUTE VOLUME REF. LEVEL, can be externally in-
+fluenced when applying a voltage of—5 to +5 V at the
+
+7
+Wa vt MAN. VENT. FILLING FLOWREF. — rear panel CONTROL TERMINAL (N28:12), MINUTE VO-
+
+LUME EXTERNAL.
+
+FLOW
+PATTERN
+
+S289855 = Not valid for SV 900 E
+
+21
+
+--- Page 22 ---
+<
+
+Electronic unit —- Reference level generation
+
+Ref. level adjust
+
+(front panel; insp. TIME % selector)
+
+In this block, the constant (normally +5V) value from
+
+INSP. MINUTE VOLUME REF. LEVEL is converted into
+
+INSP. TIME ADJUSTED REFERENCE LEVEL by the voltage
+
+divider on the front panel selector.
+
+Equal areas The square wave reference signal &SiWellastheaes
+Short jinsp. time is inversly propor-
+
+tional to the preset INSP. TIME %, since a constant tidal
+
+volume (area) should be maintained regardless of the
+
+setting of the INSP. TIME % front panel knob. See dia-
+
+gram.
+
+Ifthe set respiratory rate increases, the tidal volu-
+mes decreases, so that a constant minute volume is
+maintained regardless of the respiratory rate. See
+diagram.
+
+Long insp. time
+
+One resp. cycle
+
+Low frequency
+
+Equal areas per minutel
+
+High frequency
+
+Constant flow pattern (PC board no 5)
+
+Inputs are INSP. TIME ADJUSTED REFERENCE LEVEL and
+
+the digital control signal INSP. TIME.
+
+The output, (V23:8), is the reference value (negati-
+
+ey ah Ibe ACCELERATING HLDIPATTERN,
+[aii@\during INSP. TIME as a reference value CON-
+‘STANT FLOW PATTERN to the INSP. FLOW ERROR CALCU-
+LATOR and to the VOLUME COMPENSATOR.
+
+= +
+
+[71 = Not valid for Sv. 900 Disa? = Not valid for SV 900 E
+
+22
+
+--- Page 23 ---
+Electronic unit — Regulation of inspiration
+
+General
+
+The regulation of inspiration is done by means of the
+FLOW or PRESSURE SERVO LOOP depending on selected
+mode.
+
+The actual values for the controllers in these loops
+come either from the inspiratory flow transducer or
+the pressure transducers.
+
+23
+
+--- Page 24 ---
+AIRWAY PRESSURI
+
+Tmeaoe |, _REOUATIN OF SPRATN
+: Insp vatve
+Se PRESS, aoe START FAS} | OPENED LO}
+SP. PRESS. Levey tn vet.) |] | Se INSP TIME ENING oPING fos."
+10 L
+SELECTION MO. MARKER osciuator conrRoL PROTECTOR
+| ;
+vox IK al if
++=
+i Li i i i
+5 = 7 z
+se Se PRESS. maar "Hye gc | vunse. “| Lo} owecrin  Hobed sice stermoron
+PRESSURE eR sit PRS) conmcuico SRD w5i0e cous
+REF LVEL caucuaror ScLcOR OSCiLATOR SELECTION River
+F_faseyave cose
+GAS CHAN c 7
+Pom EL POWER OFF POWER OFF
+crewing Fe] | vauAse
+OSCILATOR
+START INSP. TIME PULSE
+Fa se ess ner teva INs_VALVE CLOSED LO}
+GAS CHANGE (LO,
+
+_ START UP RESET
+x INSP. PRESS. EF.
+
+bron
+
+5
+9:24) INSP. MINUTE.
+O-* vaLume
+
+ADJUSTMENT
+
+Anse. FLOW pREAMe. NS 27C
+
+START-UP MAN. VENT.
+
+MAN. VENT.
+FILLING FLOW REF
+SUS howe
+
+INSPFLOW SCALED
+
+Moor
+' 55 Jean i
+GB 5]
+‘CONSTANT
+vouuMe INSP FLOW
+sow rare coroeunl conensat + ae
+SELECTOR (aucuLaToR|
+
+INSP. TIME (LO)
+
+~
+
+ACCELERATING
+
+FLOW PATTERN, flow
+
+PATIERN
+SELECTION
+
+SEUCIED HOW SF
+
+ree
+InsP rei
+vous
+
+24
+
+--- Page 25 ---
+Description of block diagram
+
+The text also refers to circuit diagrams
+
+Insp.flow linearization (PC board no 5)
+
+The signal INSP. FLOW PREAMPLIFIER, is a non-linear
+function of the flow in the inspiratory channel. The
+signal is linearized in this block.
+
+The linearized output signal (V22:8), represents a
+linear measure of the momentary flow in the inspira-
+tory channel.
+
+INSP. FLOW is also fed to the 15-pole connector for
+auxiliary equipment at the rear panel.
+
+Zero-setting insp. flow (PC board no 5)
+
+To prevent offset voltage drift in the INSP. FLOW sig-
+nal, the INSP. FLOW LINEARIZATION amplifier is ac-
+coupled and set to zero by the zero setting circuits
+(V42 and V30) during the pause and expiratory time
+periods, except at the very first moment of the pause,
+i.e. until the inspiratory valve has closed.
+
+Insp. minute volume adjustment
+
+(PC board no 5)
+
+In the INSP. MINUTE VOLUME ADJUSTMENT block
+(V24:7), the INSP. FLOW signal is scaled to correspond
+to the setting of the PRESET INSP. MIN. VOL. l/min po-
+tentiometer. Increasing PRESET INSP. MINUTE VOLU-
+ME will give increasing attenuation of the INSP. FLOW
+signal in this block.
+
+Volume compensator (PC board no 5)
+The volume compensation is achieved in the follow-
+ing way: The difference between the adjusted flow
+signal INSP. FLOW SCALED and the reference flow sig-
+nal is integrated (V24:14), resulting in a measure of
+the volume difference (volume=integrated flow).
+This resulting volume difference will influence the
+momentary inspiratory flow in order to maintain an
+INSP. MINUTE VOLUME according to PRESET INSP. MIN.
+VOL. l/min setting.
+
+During VoL. CowTs [aHEEOL:RORIREESIGH mod]
+the desired MINUTE VOLUME will thus be achieved
+
+within approximately 8 breaths from each change of
+ventilation parameter (at ventilator and/or patient).
+
+During Simiwand SIMV+PRESS. SUPPORT modes, the]
+‘VOLUME COMPENSATOR will accomplish compensa-
+tion within each mandatory inspiration only.
+
+= Not valid for SV 900 D
+
+Volume compensation selector
+(PC board no 5)
+
+The actual value from either MANIVENIVOEUME,
+COMPENSATOR Or the common VOLUME COMPENSATOR
+is choosen (by V25:6,11) in this stage.
+
+Insp. flow error calculator (PC board no 5)
+The INSP. FLOW ERROR CALCULATOR is enabled by a
+control signal from the block CONSTANT FLOW PAT-
+‘TERN (V32) during INSP. TIME.
+
+The positive going INSP. FLOW SCALED value (diffe-
+rentiated via C5/R72+ proportional via R71) is added
+to the negative going SELECTED FLOW REFERENCE and
+the VOLUME COMPENSATION value from the VOLUME
+COMPENSATION SELECTOR, resulting in the INSP. FLOW
+ERROR SIGNAL (V24:1) to the ERROR SIGNAL SELECTOR.
+During pause and expiration, the INSP. FLOW ERROR
+CALCULATOR is blocked by the control signal from the
+block CONSTANT FLOW PATTERN (V32) which then
+keeps the ERROR SIGNAL at a fixed negative level.
+
+HOE = Not valid for SV 900 E
+
+25
+
+--- Page 26 ---
+Insp. pressure ref. level (PC board no 5)
+The block outputs are INSP. PRESSURE REFERENCE
+LEVEL (V25:3) and the negative going INSP. PRESSURE
+
+PRESS, SUPPORT, both block peomerny correspon to
+the sum of PEEP LEVEL and INSP. PRESS. LEVEL
+(V21:14).
+
+(Vv:
+panel settings ‘below 8cm H,0, the negative going
+INSP. PRESS. REFERENCE LEVEL is increased (V21:7)
+with 1 cm H,0.’
+
+When the button GAS CHANGE is activated, the
+block GAS CHANGE PRESSURE REF. LEVEL delivers a
+voltage corresponding to +20 cm H20 at the negative
+going INSP. PRESSURE REFERENCE output (V18:1).
+
+Insp. press. level compensator
+(PC board no 5)
+During PRESSURE REG. INSP. TIME the INSP. PRESSURE
+LEVEL COMPENSATOR connects the sum of the negative
+going INSP. PRESSURE REFERENCE and AIRWAY PRESSU-
+RE(E) during MID. INSP. TIME PULSE (switch V47), to the
+integrator V36/C20. From the integrator the signal is
+fed to the INSP. PRESS. ERROR CALCULATOR where com-
+pensation for deviations in actual pressure value,
+with respect to desired pressure level, takes place.
+At mode change, START UP RESET pulse resets the
+integrator (V46).
+
+Second half insp. time (PC board no 7)
+A positive going pulse is generated when the time
+elapsed during the present INSPIRATION is equal to
+half of the total time of the foregoing INSPIRATION.
+
+Mid. insp. time pulse (PC board no 5)
+
+The positive front edge of the pulse generated in
+SECOND HALF INSP. TIME will trigger a pulse (V1, V16)
+which is fed to INSP. PRESSURE LEVEL COMPENSATOR.
+
+= Not valid for SV 900 D
+
+26
+
+Start insp. time marker (PC board no 5)
+
+A pulse is generated at the beginning of the inspira-
+tion time. This pulse is used for the derivating circuit
+in the block INSP. PRESS. ERROR CALCULATOR, in the
+block INSP. PRESSURE ERROR AMPLIFICATION SELEC-
+TION and in the block END INSP. INDICATOR.
+
+Insp. pressure error calculator
+
+(PC board no 5)
+
+The actual AIRWAY PRESSURE (I) value (via R95) is
+added to the differentiated AIRWAY PRESSURE (E) value
+(via C18/R135/V28), together with the integrated
+AIRWAY PRESSURE (E) compensation value from INSP.
+PRESSURE LEVEL COMPENSATOR (V36:6 via R94) and
+the negative going INSP. PRESSURE REFERENCE (V18:1
+via R93) resulting in the INSP. PRESSURE ERROR SIG-
+NAL (V19:8) to the ERROR SIGNAL SELECTOR.
+
+Insp. press. error ampl. selection
+
+(PC board no 5)
+
+This stage selects the gain depending on selected
+mode and timing signals.
+
+Error signal selector (PC board no 5)
+
+This electronic switch (V26, V27) selects the INSP.
+PRESSURE ERRORSIGNAL for the pressure servo loop
+and the INSP. FLOW ERROR SIGNAL for the flow servo
+loop (see introduction chapter ”Regulation of inspira-
+tion”).
+
+Voltage controlled oscillator
+
+(PC board no 6)
+
+The VOLTAGE CONTROLLED OSCILLATOR converts the
+error signal into a pulse sequence (speed signal at V5
+via V3:7, 8) with a variable frequency which is propor-
+tional to the error signal voltage. In addition, there is
+a direction signal (at V4 via V3:1) which, depending
+on the polarity of the error signal, decides whether the
+motor should step forward (opening) or backward
+(closing).
+
+PPL = Not valid for SV 900 E
+
+--- Page 27 ---
+Direction & speed selection
+
+(PC board no 6)
+
+This is a multiplexer and the output signals are direc-
+
+tion and speed. The output signals come from the
+
+VOLTAGE CONTROLLED OSCILLATOR during normal
+
+operation, from FAST OPENING OSCILLATOR during be-
+inning of INSP. TIME in all PRESSURE REG. CONDITIONS
+
+éJjand from POWER OFF
+IN ILLATOR when mains is switched off
+or at power failure.
+
+Fast opening oscillator (PC board no 6)
+This oscillator is set (R37) to a frequency corre-
+sponding to a step motor speed of approximately
+480 steps/second.
+
+Fast opening control (PC board no 6)
+
+This stage will initiate a fast opening of the inspira-
+tory valve at the beg g of each PRESSURE REG.
+InsP. except durii é]This condi-
+tion will be kept up until the INSP. FLOW exceeds 0.17
+Vsecond.
+
+Power off voltage (PC board no 6)
+
+This stage delivers stored energy to control the ope-
+ning of the inspiratory valve (step motor) when the
+mains is switched off.
+
+Power off opening oscillator
+
+(PC board no 6)
+
+The fregency of this oscillator is selected (R92) within
+250-400 Hz.
+
+= Not valid for SV 900 D
+
+End position protector (PC board no 6)
+The purpose of the END POSITION PROTECTOR (V27)
+is to stop the VOLTAGE CONTROLLED OSCILLATOR when
+the step motor is at either of the two end positions and
+the direction signal indicates that the motor should
+step beyond these positions.
+
+The VOLTAGE CONTROLLED OSCILLATOR is blocked if
+one of the following conditions is fulfilled:
+
+© The inspiratory valve is fully open and the direc-
+tion signal indicates additional opening.
+
+© The inspiratory valve is fully closed and the direc-
+tion signal indicates additional closing.
+
+© The inspiratory valve is fully closed and the in-
+spiration time signal is low.
+
+Step motor driver (PC board no 6)
+
+The STEP MOTOR DRIVER is an up-down counter
+(consisting of C-MOS circuits V22 and V23 and an
+output buffer stage V24). The driver stage receives
+speed information (the pulse frequency) and direction
+information (forward or backward) via DIRECTION AND
+SPEED SELECTION block. The driver stage has 8
+outputs, two for each motor winding. The windings
+are activated in a specific sequence, so that the step
+motor will move an angle of rotation of 3.75° at each
+step (positioning).
+
+= Not valid for SV 900 E
+
+27
+
+--- Page 28 ---
+Electronic unit — Timing
+
+Airway
+flow
+
+Airway
+pressure:
+
+General
+
+The circuits in the main block TIMING deliver signals
+of fundamental significance for the respiratory cycle,
+i.e. the inspiratory phase (INSP. TIME), the pause pe-
+riod and the expiratory phase (EXP. TIME), see the
+diagram below.
+
+The INSP. TIME|and PAUSE TIME hre set on the front
+panel as percentages of the complete respiratory
+cycle. The EXP. TIME represents the remainder of the
+cycle to 100%, equal to 100 clock pulses.
+
+The intervals are controlled by a clock pulse genera-
+tor.
+| The percentage settings of INSP. TIMEjand PAUSE.
+| [TIME}represent the number of clock pulses to be
+counted in each respiratory cycle.
+
+Start
+simv
+cycle
+
+| The normal respiratory cycle of 100 clock pulses can
+| | be interrupted in different ways.
+See description of block diagram (Insp. time and
+| r exp. time generator) page 30.
+| | |
+
+Clock
+pulses
+
+Insp.
+time
+
+Exp.
+time
+
+TATA SL
+
+es ee ee
+|
+
+Insp. Pause Exp.
+
+100 clock pulses
+
+= Not valid for SV 900 D
+
+--- Page 29 ---
+w
+GAS CHANGE LO)
+START INSP. TIME POLS ISP. VALVE CLOSED (LO?
+INSP, PRESS. REF, LEVEL
+men ns} isa
+TIMING
+[rij
+5 6
+MODE move | Moor PGAtA COUNTER RESET (LO)
+SELECT CONTROL CHANGE ro START UP RESET
+INDICATOR 7A _ AIRWAY PRESS. (1)
+ts? FLOW Foon ont MOE
+RCE LL} | MOE yall san, atmway eness ce)
+5 5 7
+1 ‘SIGH ‘END INSP. (MAN, VENT,
+“1 counier INDICATOR TIMING
+‘ START UP MAN, VENT, z agama purren press. exceeneo
+(RESP. RATE EXT. LS ha Lock] A £- e106K
+MoOe oe uae
+3) 3 TLB AM, 1 INSP. TIME
+, ‘cuock NSP TIME 1 TE es
+set PULSE REAP TIME gene. time [ pi haan, Zotar Tue
+mW ‘GENERATOR GENERATOR F51]] | MUIPLEXER
+v5) (118012)
+SLAVE cLock pede i EN fa)_MASTER CLOCK
+suave START nse, >) 19 JOA Poa Gp, Waste stanr nse
+SMV. RATEEXT. ic Pa Ra START ns?
+5
+wera) sy sot
+i) GENERATOR TW.
+nse. rime cu0cK (Lor 4 2 sa Wor
+ng Ap PATIENT TG
+Sya00t — =
+Sow att \M2G8CI Foyonoc: 11
+iC SHIT VeRowT PANEL! |] sv 9009 10%
+tow | |] PAUSE TIME ui
+he RATE |
+7B HoH | veh aahare
+se me A LNSILIEN (inseenus (cx pase
+seuect A Setect wou HOU
+“MODE”
+In the entire BLOCK DIAGRAM, the designa' a] MODE
+represents one or more of the following output
+signals from the MODE CONTROL BLOCK:
+PRESS.REG.INSP TIME
+PRESS.REG.CONDITION
+PRESS.SUPP.MODE SET (LO)
+(OL.CONTR.MODE SET (LO)
+SIMV+P.MODE SET (LO)
+SIMV MODE SET (LO)
+SIMV MODE
+CPAP MODE SET (LO)
+SIMV+CPAP MODE
+MODE CHANGE
+IMAN.VENT. MQDE'SET {LO}
+= Not valid for SV 900 D Not valid for SV 900 E
+
+29
+
+--- Page 30 ---
+Description of block diagram Insp. time & exp. time multiplexer
+(PC board no 3)
+
+The text also refers to circuit diagrams. This block is controlled by a MODE-signal. JRS#isU8
+
+Clock pulse generator (PC board no 3)
+
+The CLOCK PULSE GENERATOR is a voltage controlled
+
+gecillator controled by the BREATHS/min setting on ¥
+e front panel. The voltage range is from 0 to +5V
+
+corresponding to 5-120 breaths/min. Normally, there Pause hold (PC board no 3)
+
+will be 100 clock pulses in each breath. Example: A This stage is controlled by the knobs INSP. PAUSE
+
+setting of 60 breaths/min corresponds toa frequency | HOLD and EXP. PAUSE HOLD. When any of these but-
+
+of 100 Hz. The width of a clock pulse is approxi- tons is depressed, the signal PAUSE HOLD (V19:3)
+
+mately 0.1 ms regardless of the clock frequency. The _ stops the clock pulse to the INSP. TIME & EXP. TIME
+
+frequency can be externally controlled (via analogue © GENERATOR, synchronized with the respiratory cycle.
+
+input) or the output signal CLOCK (V44:1) may be
+externally controlled (via digital input). ISIMV pulse generator (PC board no 3)
+The output MASTER CLOCK (LO) is used externally This is the same kind of voltage controlled oscillator
+
+when two ventilators are synchronized. las the CLOCK PULSE GENERATOR. The signal is divi-
+ded by 100 (V35) and ft shes
+
+ign:
+START SIMV CYCLE pulse to SIMV TING. One pulse is
+emitted for each SIMV period.
+
+imv timing (PC board no 3)
+
+uring SIMV modes, this block will make sure that one
+
+andatory breath (which means a FLOW REGULATED
+INSPIRATION) is started during each SIMV-period.
+
+Insp. time and exp. time generator Each STARTSIMV CYCLE pulse from the SIMV PULSE
+(PC board no 3) ENERATOR (V34:10), starts a new SIMV-period which
+The INSP. TIME AND EXP. TIME GENERATOR consists of fnean asynchronizing WAIT-period, waiting for the
+an insp. and pause time counter (V2, V5), and the ext mandatory breath to be initiated. The
+
+flip-flops (V8) for INSP. TIME and EXP. TIME. /AIT-period will end ifthere is a PATIENT TRIG (via
+In normal controlled MODE operation the following _[V27:5), or at the latest (via V27:4), when 90 clock
+occurs: ulses from the CLOCK PULSE GENERATOR (V44:1)
+have been counted (V30).
+© EXP. TIME ends and INSP. TIME starts after every In both cases, the SIMV MANDATORY BREATH TRIG
+100th clock pulse (V9) frat a command from SIMV 'V27:7), will initiate the mandatory breath witha
+). [FLOW REGULATED INSPIRATION. During (SIMV)-
+
+© INSP. TIME ends when the number of clock pulses fnconort breathing, the command PRESS. REG.
+
+preset on the INSP. ‘TIME % knob have been emitted. RECONDITION Me stinel will enable the PRESSURE SER-
+'VO LOOP instead of the FLOW SERVO LOOP.
+© EXP. TIME starts when the number of clock pulses The SIMV BREATHS/min setting is compared with the
+preset on the PAUSE TIME % have also been emitted. IppraTHs/min setting in comparator V37. This ensu-
+
+e Atime limitation i jres that when the SIMV RATE is set at a rate, higher
+
+MAN 0 than the BREATH RATE SET, the resulting BREATH RATE
+
+will be the one coming from BREATHS/min setting.
+
+1 INSP. TIME sR earrecponts to 81 % of
+
+a breath cycle (V6:3), according to the front panel Mode control (pc board no 3)
+setting BREATHS/min. This start expiration condition is _ In combination with the mode selector on the front
+
+mentioned on page 32. Also refer to the Operating panel, this block generates 13 different so called MODE
+
+Manual, page 2:5 (safety function). signals used in several places in the ventilator.
+
+The clock pulses are gated (V6:10) with the INSP. (Signal names in the INTERCONNECTION DIAGRAM and
+TIME signal, resulting in the signal INSP. TIME x table on page 29).
+
+CLOCK (LO), which is used to generate the reference
+flow signals, see Reference level generation. ——
+
+The normal timing pattern can be interruptedby | Mode change indicator (PC board no 6)
+the commands PATIENT TRIG. (V27:12), UPPERPRESS. | ASTARTUPRESET pulse is generated at mode change,
+EXCEEDED (V11:6), START EXP. SPONT. (V17:13),PAU- _ poweronand gaschange. The result of the COUNTER
+
+SE HOLD (V11:1), SLAVE START INSP. (V8:4,10), and RESET pulse also generated at mode change and gas
+
+COUNTER RESET (via R76). change is to reset the 2 minute timer and that the
+The MASTER START INSP. (V7:10) signal is used ex- expiration starts immediately. This expiration will
+
+ternally when two ventilators are synchronized. be 100 clock pulses long if there is no patient trig.
+
+30 [(( ~~ }= Not valid for SV 900 D_ pyigqpye= Not valid for SV 900 E
+
+--- Page 31 ---
+[GBAEI the moment when the spontaneous inspiration
+
+is about to stop is normally determined in this stage
+(a START EXP. SPONT signal is generated).
+
+Criteria no 1. for this is when the measured flow
+drops below 25% (V22:2/R53, R76) of the PEAK FLOW
+during the same inspiration (vi: 1/C13) ifthe PEAK
+INSP. FLOW is higher than 0.1 I/second.
+
+Closed inspiratory valve anda pressure increase of
++3 cm H20 will also result in a START EXP. SPONT.
+signal to INSP. TIME & EXP. TIME GENERATOR (criteria
+no 2). This signal makes INSP. TIME end even if the
+peak insp. flow is lower than 0.1 I/s.
+
+See table on page 32.
+
+[~——} = Not valid for SV 900 D ‘fifi = Not valid for SV 900 E
+
+31
+
+--- Page 32 ---
+Start insp. & end insp. conditions, and the front panel settings on which they depend
+
+The start insp. conditions (V=ventilator and
+P=patient) are monitored in the following blocks:
+(V) INSP. TIME & EXP.TIME GENERATOR
+
+(PC board no 3)
+(P) TRIG. LEVEL MONITORING
+
+(PC board no 4)
+
+P, = AIRWAY PRESSURE (1)
+
+Pg = AIRWAY PRESSURE (E)
+
+Patient TRIG =
+
+Px < [PEEP LEVEL] — [TRIG SENSITIVITY]
+
+The end insp. conditions (0-5) are monitored in the
+following blocks:
+(0); INSP. & EXP.TIME GENERATOR
+(PC board no 3)
+(1): END INSP. INDICATOR
+(PC board no 5)
+(2): END INSP. INDICATOR,
+(PC board no 5)
+(3): UPPER PRESSURE MONITORING
+(PC board no 4)
+(4): HIGH INSP.PRESS.PROTECTION
+(PC board no 5)
+(5): INSP. TIME. & EXP.TIME GENERATOR
+(PC board no 3)
+
+Start insp. condition
+
+End insp. condition *)
+
+(P) Patient TRIG; (1)
+Preset TRIG. SENSITIVITY
+
+PRESSURE
+SUPPORT
+
+or pressure
+regulated
+inspiration
+during SIMV+
+
+(2)
+
+(3)
+(4
+
+(5)
+
+INSP.FLOW < 25 % X [PEAK INSP.FLOW during same
+inspiration];
+
+(This condition only at PEAK INSP.FLOW > 0.1 I/s)
+[INSP. VALVE CLOSED] & Pg> ({3 cm H,O] + [PEEP LEVEL] +
+[INSP.PRESS LEVEL above PEEP]);
+
+Preset PEEP and INSP.PRESS.LEVEL above PEEP
+
+Pr or P;> [UPPER PRESS.LIMIT];
+
+Preset UPPER PRESS.LIMIT
+
+P:> ([30 cm H,O] + [PEEP LEVEL] + [INSP.PRESS.LEVEL
+above PEEP]);
+
+Preset PEEP and INSP.PRESS.LEVEL
+
+Duration of {INSP.TIME] > (80 % x [BREATH CYCLE);
+
+Preset BREATHS/min
+
+(V) Ventilator STARTINSP.; (0)
+Preset BREATHS/min
+(P) Patient TRIG; (3)
+regulated Preset TRIG.SENSITIVITY
+
+inspiration
+
+Ventilator STOP INSP.;
+
+Preset INSP.TIME%
+
+(Px or P,) > [UPPER PRESS.LIMIT];
+Preset UPPER PRESS.LIMIT
+
+*) The conditions 1-5 lead directly to start of expira-
+
+tion.
+The condition 0 leads to PAUSE. Preset PAUSE
+TIME%.
+
+Start expiration condition (safety function) during
+
+PAUSE:
+32
+
+(Duration of [INSP.TIME + PAUSE TIME}) > (80% x
+(BREATH CYCLE]})
+
+Preset INSP.TIME% + PAUSE TIME%.
+
+This start exp condition is monitored in the same
+way as end insp condition 5.
+
+(———F =NotvalidforSV900D #88988 = Not valid for SV 900 E
+
+--- Page 33 ---
+Electronic unit — Monitoring
+
+General
+
+The monitoring subsystem of the Servo Ventilator
+900 C/D/E is used for continuous monitoring and indi-
+cation, via the front panel meters, of the pressure and
+flow signals.
+
+The expiratory flow transducer continuously meas-
+ures the expiratory flow. The flow is linearized and
+the value is shown on the meter EXPIRED MINUTE
+VOLUME and on the digital display as EXP. TIDAL VOL.
+ml and EXP. MIN VOL. l/min.
+
+The monitoring system operates independent of
+the regulating systems.
+
+On the digital display, 8 parameters can be selec-
+ted for direct read-out.
+
+The values are continuously compared with preset
+alarm limits, and if any of these limits is exceeded, a
+corresponding visual and audible alarm is activated.
+
+As described in the section TIMING, the timing
+schedule is affected when one of the limit values UPP-
+ER PRESSURE EXCEEDED or PATIENT TRIG. is exceeded.
+
+All internal voltages, and timing control signals
+are monitored and an audible alarm is activated if
+any of these should fail.
+
+The audible alarms, with some exceptions, can be si-
+lenced for approximately 2 minutes by means of the
+knob OFF 2 MIN on the front panel. UPPER PRESS.LIMIT
+and TIMING FAILURE audible alarm as well as the ini-
+tiation of an alarm for VOLTAGE failure can not be si-
+lenced in this way.
+
+--- Page 34 ---
+02 CELL CONNECTED (LO)
+nea¥ 20_naf27ac
+7 MONITORING 1 FRONTRANEL
+F 02 }CONC. ALARM UNSEL | 3
+aed +] ! 1
+RLARM 7 1
+, 1 eer
+UMTS Lz com. fu | | i
+T ONITORING Hise Fy |
+a
+ser ante a t 1
+oe Mn ARM UNSET_ 19: JS] nam fT ~& !
+cere \ws na f°] ALARMS ; Lamp | ESE MINUTE VOL,
+‘ower cer Mute ass ac] OFMER | | 1
+‘ ALARM it vouUme r=} H- |
+tian 678 = | PEPE venoms 1 Ge MNOTE vou. |
+VE OPENED ILO) tas \ \
+Co on stu py fa sac] LQ |
+‘ce
+rowan Sa ph 1 sire 1 Year ruse ram
+G TIMING i \
+MINUTE ONTORNG ) |
+liver T |
+upioacan 7mm || NIE ! AeWeA |
+co ' 1
+AIRWAY PRESSURE () t H n
+PEP LEVEL me H i LOW EXP. FLOW
+_ TRIG i
+A be 2 | UPPER PRESSURE
+GENERATION ‘MONITORING I H
+START UP RESET ; me Y
+(SLAVE STARTING? TF i |
+‘AIRWAY PRESSURE () i
+NSP. PRESS. REF won use? |LELLLT weree =X)
+‘AIRWAY PRESSURE tt) PRESSURE PRESSURE,
+PROTECTION +| MONITORING i
+k
+WOUE !
+TMG & Ip
+| Jett] tau ALARM (10)
+AIRWAY PRESSURE it) hendncs MONITORING | 1
+[AIRWAY PRESSURE () meen Lt} ———— ~uv ac
+-o} SELECTOR | eae Pane ito “+ 5v tPoweR oN)
+PATIENT TRIG. ry, | 1 1
+(UPPER PRESS, EXCEEDED Pa. 7 | | OPERATING | |
+TIME METER
+Svara\n74,298 rs {Ce} awe on
+feanssuus f- ‘
+9. s.om cae a row now BR
+TAIN banana! 1] panen meen] Jone meer || exe min vot.
+==, as (02 viii)
+i :
+= r 7 en) cr2viva
+\N4220A } ZERO SETTING &G LJooG |)
+arr FLOW ro] asay 1° '
+Como._| | | OvM /isruy]
+if ae INSP. THOAL VOL.
+wsP. FLOW nua 24) avn
+hw Se ‘sv
+) ae wT Ou,
+278 (0.220 Vii
+AinWAY PaessuRE e) 7 JUBA rian cy “som abo
+Tause PRESSURE
+24 (50m mbar}
+WEAN PRESSURE
+164g (Mm atm)
+{SOV/BREATH/mn)
+
+--- Page 35 ---
+Description of block diagram
+
+The text also refers to circuit diagrams.
+
+Set O, alarm limits (PC board no 9)
+
+The settings on the front panel knobs for 0, CONC. ALARM
+
+Limits are sensed in this block.
+
+The output signal 0, CONC. ALARM UNSET is a digital
+signal (V15:10) which will be active (LO) if:
+
+— the front panel knob LowER ALARM LIMIT for 0, CONC. is
+close to its left (counter clockwise) end position (out
+of scale) and/or
+
+— the front panel knob upPER ALARM LIMIT for 0, CONC. is
+close to its right (clockwise) end position (out of
+scale).
+
+This output signal (V 15:10) activates the yellow lamp
+SET 0, ALARM on the front panel via the block ALARM LAMP
+DRIVER.
+
+The output signals furthered to the block 0, conc.
+MONITORING correspond to:
+
+— O, conc. lower limit
+
+— O, conc. upper limit
+
+— signal level corresponding to 18% O, (21% if R61 =
+1 kQ is in use).
+
+O, conc. monitoring (PC board no 9)
+The input signal is the 0, conc. from the amplifier for O,
+concentration. The scale factor is 50 mV/%.
+
+The signal is compared with the preset alarm limits
+from the block set 0, ALARM Limits. An alarm pulse is
+generated to the ALARM LAMP DRIVER (for 0, CONC. ALARM)
+if the signal 0, conc. value is:
+
+— less than the setting of the front panel knob Lower
+
+ALARM LIMIT for O, concentration or
+— more than the setting of the front panel knob upPER
+
+ALARM Limit for O, concentration or
+— below 18% independent of front panel setting (21% if
+
+R61 = 1 kQ is in use).
+
+Set minute volume alarm limits
+(PC board no 6)
+
+The settings on the front panel knobs concerning
+ALARM LIMITS for EXPIRED MINUTE VOLUME are sen-
+sed in this block.
+
+The output signal is the signal MINUTE VOL. ALARM
+
+UNSET (V10-L37&L38) which will be active (HD if:
+
+—the front panel knob LOWER ALARM LIMIT for
+EXPIRED MINUTE VOLUME is close to its left (counter
+clockwise) end position (out of scale) and/or
+
+—the front panel knob UPPER ALARM LIMIT for
+EXPIRED MINUTE VOLUME is close to its right (clock-
+wise) position (out of scale).
+
+The signal MINUTE VOL. ALARM UNSET activates a
+flashing yellow light, SET MIN. VOL. ALARM on the
+front panel via the block ALARM LAMP DRIVER.
+
+Exp. minute volume monitoring
+(PC board no 6)
+The actual value EXP. MINUTE VOL. MONITOR from the
+EXP. FLOW AVERAGER and the settings of the front
+panel knobs concerning the ALARM LIMITS for EXPIR-
+ED MINUTE VOLUME are sensed in the EXP. MINUTE
+VOLUME MONITORING block.
+
+The output (V9:7) is the signal EXP. MIN. VOL. LIMIT
+EXCEEDED which will be active (HD if the actual value
+of EXP. MINUTE VOL. MONITOR is:
+
+-more than the setting of the front panel knob UPPER
+ALARM LIMIT for EXPIRED MINUTE VOLUME.
+
+—less than the setting of the front panel knob LOWER
+ALARM LIMIT for EXPIRED MINUTE VOLUME.
+
+‘The signal EXP. MINUTE VOL. LIMIT EXCEEDED acti-
+vates a red flashing lamp, EXP. MINUTE VOLUME
+ALARM, on the front panel and the AUDIBLE ALARM
+via the block ALARM LAMP DRIVER.
+
+Gas supply monitoring (PC board no 6)
+The actual value of INSP. FLOW from INSP. FLOW LINE-
+ARIZATION and the actual value of AIRWAY PRESSURE
+(D from AIRWAY PRESSURE (1) AMPLIFIER as well as the
+control signal INSP. VALVE OPENED (LO) from END
+POSITION PROTECTOR are sensed.
+
+The output signal (V7:7) GAS SUPPLY FAILURE, will
+be active during all modes exeeptiMANSVENTSMODE
+if the following occurs at the same time:
+
+—INSP. FLOW is less than 0.3 I/second,
+—ATRWAY PRESSURE (0, is less than 22 cm H20 and
+-INSP. VALVE is fully open.
+
+The signal GAS SUPPLY FAILURE activates the flash-
+ing red alarm lamp, GAS SUPPLY ALARM, on the front
+panel and the AUDIBLE ALARM via the block ALARM
+LAMP DRIVER.
+
+Sa = Not valid for SV 900 E
+
+35
+
+--- Page 36 ---
+2 minute timer (PC board no 6)
+
+The input signals are AUDIO ALARM TURN OFF (LO)
+from the front panel pushbutton OFF 2 MIN and COUN-
+TER RESET from (R 80) MODE CHANGE INDICATOR.
+
+The output signal (V28:10) AUDIO ALARM 2 MIN OFF,
+will be active during (up to) 2 minutes from each
+time the pushbutton is depressed. During the active
+time of the output signal, the timer can be reset by
+the signal COUNTER RESET. The signal AUDIBLE
+ALARM 2 MIN OFF will silence the following alarms
+for 2 minutes:
+
+EXP. MINUTE VOLUME ALARM
+APNEA ALARM ,
+
+GAS SUPPLY ALARM
+
+O2CONC ALARM
+
+Timing monitoring (PC board no 6)
+In all modes exceptitheMAN:VENT“MODE the control
+signals CLOCK , INSP. TIME, and EXP. TIME are
+monitored.
+
+The signal TIMING FAILURE (LO) (V28:6), will be
+active:
+-if more than 0.5 second has passed since the last
+
+start of a CLOCK PULSE or
+
+if the control signals INSP. TIME and EXP. TIME
+should both be active at the same time.
+
+The signal TIMING FAILURE (LO) activates the
+AUDIBLE ALARM via the block TIMING & SUPPLY
+VOLTAGE MONITORING.
+
+The signal APNEA (LO), (V30:9), will be active:
+-if more than 15 seconds has passed since the last
+
+start of INSP. TIME and/or
+
+-if more than 15 seconds has passed since the last
+start of EXP. TIME.
+
+The signal APNEA (LO) activates the red flashing
+alarm lamp, APNEA ALARM, on the front panel and
+the AUDIBLE ALARM via the block ALARM LAMP
+DRIVER.
+
+Timing & supply voltage monitoring
+
+(PC board no 9)
+
+In case of TIMING FAILURE, (from TIMING MONITORING)
+or if any of the four regulated internal supply vol-
+tages fails, AUDIBLE ALARM will be activated.
+
+Alarm lamp flash oscillator (PC board no 9)
+
+This oscillator generates a frequency (approximately
+2 Hz) for lamp flashes and audible alarms.
+
+Alarm lamp driver (PC board no 9)
+The input alarm signals are gated together with the
+signal from ALARM LAMP FLASH OSCILLATOR causing
+the activated alarm lamps to light up and flash.
+
+All alarms, except SET ALARM LIMITS include
+audible alarm.
+
+Audible alarm (PC board no 9)
+
+The bleep-tone is driven from V17 or V11. The capa-
+citors C1—-C6 supplies the alarm circuit with power
+for approximately 5 minutes when mains is switched
+off or at mains failure.
+
+Operating time meter (Power supply unit)
+The meter reading (on the rear panel), indicates the
+accumulated time that the power has been switched
+on.
+
+Trig. level generation (PC board no 4)
+The input signals are, the command value (0-2.5V)
+‘TRIG. SENSITIVITY SET from the front panel knob
+TRIG. SENSITIVITY BELOW PEEP (-20—0 cm H20)
+and the reference value (—0,5—2.5V) PEEP LEVEL
+(-10—+50 cm H,0) from PEEP LEVEL GENERATION.
+The output signal (V6:1) is the reference value
+TRIG. LEVEL, corresponding to the absolute TRIG.
+SENSITIVITY value subtracted from the PEEP value.
+
+2" = Not valid for SV 900 E
+
+36
+
+--- Page 37 ---
+Trig. level monitoring (PC board no 4)
+The signal PATIENT TRIG. (V14:14/L53) and TRIG.
+LAMP (V22:16), will both be high each time the actual
+value AIRWAY PRESSURE (E) falls below the reference
+value TRIG. LEVEL with the following exception:
+
+To prevent trig. while the patient is exhaling,
+the trig. is blocked:
+~by (V17:10) during the first 5 seconds after start of
+expiration—during expiration only—as long as the
+actual EXP. FLOW value is more than 0.05 I’s. (V17 is
+reset by START INSP. control signal).
+
+—(via V13:14) ifthe actual value AIRWAY PRESSURE
+(E) has beep increasing (V13:1, 7, 8) = oscillating
+during expiration.
+
+The signal PATIENT TRIG. is fed to the main block
+TIMING and used for start of an inspiration and the
+signal TRIG. LAMP (LO) lights the yellow lamp at the
+TRIG. SENSITIVITY knob on the front panel.
+
+High insp. pressure protection
+
+(PC board no 5)
+
+The inputs are, PRESS. REG. INSP. TIME (inverted in the
+block MID INSP. TIME PULSE), the actual value AIRWAY
+PRESSURE (1) and the desired inspiratory pressure
+value represented by the negative going INSP. PRES-
+SURE REFERENCE signal (via R90).
+
+The output signal HIGH PRESSURE STOP INSP.
+(V18:8/L33), will be active during PRESSURE REGULAT-
+ED INSPIRATION (controlled via L13) if the actual value
+AIRWAY PRESSURE (1) exceeds the desired inspiratory
+pressure value by more than 30 cm H,0.
+
+The output signal HIGH PRESSURE STOP INSP. will
+initiate a condition to stop the pressure regulated
+inspiration and start the expiration.
+
+Upper pressure monitoring
+
+(PC board no 4)
+
+The input signals are HIGH PRESSURE STOP INSP., the
+
+actual values AIRWAY PRESSURE (I) and (E) and the
+
+command value UPPER PRESSURE LIMIT SET from the
+
+front panel knob UPPER PRESS LIMIT (15-120 cm H20).
+The output signals UPPER PRESSURE EXCEEDED
+
+(V9:7/L39, or (V23:6/L39) UPPER PRESSURE ALARM
+
+(V22:14) and UPPER PRESSURE ALARM LAMP (V22:15)
+
+will all be active as long as:
+
+-the actual value AIRWAY PRESSURE (1) and/or (E)
+exceeds the command value UPPER PRESSURE LIMIT
+SET and/or
+
+—HIGH PRESSURE STOP INSP. is active.
+
+The output signal UPPER PRESSURE EXCEEDED is
+used for initiating an expiration (in the block INSP.
+TIME & EXP. TIME GENERATOR).
+
+The signal UPPER PRESSURE ALARM activates the
+AUDIBLE ALARM.
+
+The signal UPPER PRESSURE ALARM LAMP (LO) lights
+the red lamp at the knob UPPER PRESS. LIMIT on the
+front panel.
+
+Airway pressure instrument selector
+This block is a symbol for the function of:
+
+—one part of the CALIBRATION SWITCH (in the pneu-
+matic unit) and
+
+~one part of the front panel MODE SELECTOR.
+
+The normal output signal corresponds to AIRWAY
+PRESSURE ()) from the inspiratory PRESSURE TRANS-
+DUCER(). The output signal during MAN{MGdeor
+when the calibration switch is depressed, corresponds
+to AIRWAY PRESSURE (E) from the expiratory PRESSURE
+TRANSDUCER (E).
+
+= Not valid for SV 900 E
+
+37
+
+--- Page 38 ---
+a
+-_
+
+bad tke Le
+
+i a et repre
+
+igi
+
+Airway pressure panel meter
+
+The panel meter for AIRWAY PRESSURE displays the
+inspiratory or expiratory pressure, depending on the
+selected mode and the calibration switch.
+
+Exp. flow linearization (PC board no 4)
+The signal from the expiratory flow transducer is
+linearized (by V8:1).
+
+Zero setting exp. flow (PC board no 4)
+To prevent offset voltage drift in the EXP.FLOW sig-
+nal, the EXP.FLOW LINEARIZATION amplifier is ac—
+coupled and set to zero during inspiration and
+pause by means of the zero setting circuit (V19).
+Zero setting also takes place in this block (by V18)
+when the GAS CHANGE pushbutton is depressed.
+
+Flow averager (PC board no 7)
+
+The FLOW AVERAGER is a low pass filter. Its time con-
+stant is depending on the CLOCK-frequency (preset
+BREATHS/min on the front panel). The output EXP.
+MINUTE VOL. (0.2V/I/min) is the mean value of the
+input EXP. FLOW (-7.2V/I/s). The outputs EXP. SONLTE
+VOL. INSTRUMENT (fro)
+VOL. MONITOR (V 14:
+
+Expired minute volume panel meter
+The nel r shi EXPIRED MINUTE VOLUME
+d]0—40 l/min).
+
+Calculation timing (PC board no 7)
+
+This block produces timing signals for the different
+calculating stages.
+
+Integrator (I) (PC board no 7)
+
+The INSP. TIDAL VOLUME is an integration of the INSP.
+FLOW signal during each inspiration.
+
+Integrator (E) (PC board no 7)
+The EXP. TIDAL VOLUME is an integration of the EXP.
+FLOW signal during each expiration.
+
+|= Not valid for SV 900 D
+
+38
+
+Ripple reduction (PC board no 7)
+
+This is a special low pass filter, creating a stable
+
+output value (V34:5), EXP. MINUTE VOL. (0.2V/I/min;
+The output (EXP. MINUTE VOL. DISPLAY) can
+
+be shown on the DIGITAL DISPLAY at the front panel.
+
+End insp. pressure hold (PC board no 7)
+This block is an analogue memory.
+
+The PEAK PRESSURE is the AIRWAY PRESSURE (E) va-
+lue at the end of inspiration.
+
+End pause pressure hold (PC board no 7)
+This block is an analogue memory.
+
+The PAUSE PRESSURE is the AIRWAY PRESSURE (E)
+value at the end of the pause.
+
+Pressure averager (PC board no 7)
+
+The PRESSURE AVERAGER is a low pass filter. Its time
+
+constant is depending on the frequency of the stret-
+
+ched CLOCK pulses (by V9:10 in the block CALCULA-
+
+TION TIMING) (preset BREATHS/min on the front panel).
+The output MEAN AIRWAY PRESSURE is a mean value
+
+of the AIRWAY PRESSURE (E).
+
+Resp. rate calculator (PC board no 7)
+
+The RESP. RATE (CALCULATED) is an analogue frequen-
+cy value corresponding to a ”beat to beat” time of each
+respiratory cycle.
+
+Display control (PC board no 1)
+Via the front panel selector for DISPLAY PARAMETER,
+—the pa rameter to be shown is selected
+
+oan BREN oft the DVMDISPLAY is influenced by 02
+CELL CONNECTED SHG MANGHOIe)
+
+DVM/Display (PC board no 1)
+
+This is a Digital Volt Meter with 3 1/2 digits.
+Depending on the front panel selector for DISPLAY
+PARAMETER one out of eight analogue parameters will
+be displayed as a corresponding digital value.
+
+"= Not valid for SV 900 E
+
+--- Page 39 ---
+Electronic unit — Regulation of expiration
+
+General
+
+The pressure signal from the pressure transducer
+in the expiratory channel is compared with the pre-
+set PEEP level, and a difference results in a correction
+signal to the expiratory valve to maintain the set
+PEEP level.
+
+39
+
+--- Page 40 ---
+peer ueve
+
+Lom ex. FL.OW
+
+inwav mressune (6) NA CINE
+
+FIER
+
+PULSE Putt
+wom Fe) MAGNET
+MODULATION
+
+PULL MAGNET con
+
+ex. FLOW
+
+Pre
+PRESSURE
+
+Description of block diagram
+
+The text also refers to the circuit diagrams.
+
+Active filter (PC board no 4)
+The AIRWAY PRESSURE (E) signal is filtered with re-
+spect to 40 Hz signal (ripple), from expiratory valve.
+
+Peep error calculator with peep
+compensator (PC board no 4)
+
+The PEEP level signal from PEEP LEVEL GENERATION
+(V6:8 via R18) is added to the actual inverted value
+of AIRWAY PRESSURE (E) from ACTIVE FILTER (V8:8 via
+R17) which gives the proportional action (via R21)
+for the PEEP regulation. The proportional action has
+two levels of amplification. The higher level of ampli-
+fication is intended to increase the opening of the ex-
+piratory valve during the very first 50-70 ms of EXP.
+TIME. During the rest of EXP. TIME the normal level of
+amplification is used (activated via V2 by control sig-
+nal from V5:14). An additional activating circuit (V25
+controlled from the signal INFANTS RANGE SET (LO) at
+P4:22A) results in the normal level of amplification
+being used continuously during the entire EXP. TIME if
+the EXP. MINUTE VOLUME is less than ximately 4
+
+At each breath the difference between actual AIR-
+WAY PRESSURE (E) (inverted value via R12) and the de-
+sired PEEP (value via R15) together with a minor in-
+fluence from EXP. FLOW (value via R58) is (enabled via
+V16 and) integrated in the PEEP COMPENSATOR (V10/
+C21). The PEEP COMPENSATOR continuously stores a
+signal level which is used (via R62) for biasing the
+PULL MAGNET COIL during PEEP regulation.
+
+The combined PEEP regulating signal (V11:1) will
+influence pull magnet via PULSE WIDTH MODULATION
+to obtain the desired PEEP level.
+
+Pulse width modulation (PC board no 4)
+The pulse width modulator converts the signal from
+
+the PEEP ERROR CALCULATOR to a pulse sequence with
+a fixed frequency.
+
+Pull magnet driver (PC board no 4)
+
+The driver stage converts the pulses into a current
+through the pull magnet coil. The pull magnet keeps
+
+40 Cc Not valid for SV 900 D
+
+0 PULSE TRAN
+
+the expiratory valve closed during inspiration and
+pause.
+
+The opening angle of the pull magnet is deter-
+mined by the width of the current pulses through the
+coil. The greater the error signal, the shorter the
+pulse and consequently, the bigger the opening
+angle.
+
+The signal GAS CHANGE causes the valve to open.
+
+Peep compensator timing (PC board no 4)
+These are the control circuits for the integrator in the
+PEEP ERROR CALCULATOR WITH PEEP COMPENSATOR
+block.
+
+The input (V16) of the integrator (V10/C21) of the
+PEEP ERROR CALCULATOR WITH PEEP COMPENSATOR,
+block is switched on (by V17/V9) at the beginning
+of EXP. TIME. It will be switched off when the EXP.
+FLOW is less than 0.014 I/second (by V6:14) or at the
+latest after 250 ms (by V17/V9). It is grounded (via
+V1) during the first 50-70 ms of EXP. TIME (by V5:14).
+
+Peep security valve opener (PC board no 4)
+This stage ensures that the integrator in the PEEP
+CALCULATOR WITH PEEP COMPENSATOR block is
+discharged (V15) if the pressure exceeds 4 cm H20.
+above the set PEEP level (by V11:7).
+
+As the pressure at the beginning of expiration is
+normally more than 4 cm H20 above PEEP level, the
+integrator discharge circuit (V15) is blocked during
+the first part of the expiration from PEEP COMPENSA-
+TOR TIMING (V5:14/L43).
+
+It is also blocked during INSP. TIME and PAUSE TIME
+and as long as EXP. FLOW is more than 0.05 I/second
+(V14:7 in the block TRIG LEVEL MONITORING).
+
+Pull magnet delay (PC board no 4)
+
+A delay pulse of approximately 1.5 sis generated
+each time the input signal GAS CHANGE (V5:7) goes
+low. The delay pulse goes to the PULL MAGNET DRIVER
+block. Thus, each time the front panel knob GAS
+CHANGE is released (= at the end of GAS CHANGE), the
+PULL MAGNET DRIVER is disabled and the expiratory
+valve is kept open during this delay pulse. The time is
+long enough for the AIRWAY PRESSURE to drop to a low
+pressure level.
+
+= Not valid for SV 900 E
+
+--- Page 41 ---
+Electronic unit — Voltage supply
+
+General
+
+The Servo Ventilator 900 C/D/E can be connected to
+mains 110, 120, 220 or 240 V AC 50/60 Hz with a pro-
+tective ground. (A special version for 100 V AC is av-
+ailable).
+
+The voltage supply system provides the subsys-
+tems with supply voltages +24, +5 and +15V.
+
+If any of the internal voltage supplies fails, an
+alarm is immediately activated.
+
+External grounding
+terminal
+
+Transformer (Power supply unit)
+The voltage can be selected internally at the trans-
+
+VOLTAGE SUPPLY de
+former mains input. There are fuses for the trans-
+
+cava |__ former, externally (in fuse holder) and internally
+[7] secuation] — (three thermal fuses).
+‘| Fy +24V, +5V, +15V regulation
+sans] marsomstt itin (PC board no 10)
+The four internal supply voltages are all regulated
+181 DEI) and protected against over—voltage at the outputs by
+OOo diods (L4, L5, L6 and L7).
+prin S© Ref. voltage generation (PC board no 1)
+a. OV (REF The generated reference voltages + 10V (REF), +5V
+an aa (REF) and +2.5V (REF) are used at the front panel
+potentiometer controls and on different PC boards.
+
+41
+
+--- Page 42 ---
+Electronic unit — Input/output
+
+Recorder
+output
+
+Control!
+terminal
+
+Auxiliary
+equipment
+
+INPUT / OUTPUT
+
+EXTERNAL CONTROL SIGNALS
+
+oureut
+BUFFERS
+
+ourrut
+SIGNALS
+
+ourrut To Input FROM
+CONNECTORS: CONNECTORS:
+
+42
+
+General
+
+At the rear panel of the ventilator, there are three
+15-pole Cannon sockets for AUXILIARY EQUIPMENT,
+a 25-pole Cannon socket (under a lid): CONTROL TER-
+MINAL and a 37-pole Cannon socket with RECORDER
+OUTPUTS.
+
+Output buffers (PC board no 8)
+
+The output signals at the 15- pole and 37-pole Can-
+non sockets are all (except the supply voltages) buffe-
+red for security.
+
+External control (Rear panel)
+
+The 25-pole socket marked CONTROL TERMINAL is in-
+tended for control of some ventilator functions, for
+instance when connecting two ventilators in a MAS-
+TER-SLAVE configuration.
+
+The pins are either for input signals or output.
+signals (pins 22 and 23 are combined). The inputs
+are intended for low-resistance (less than 100 ohm)
+voltage, lower than +12V. Higher voltages might
+be hazardous to the electronic circuits and must
+not be used.
+
+--- Page 43 ---
+Recorder output
+The recorder output (37—pole Cannon), contains
+outputs for flow, pressure and some control signals.
+The outputs are adapted to Siemens-Elema Ming-
+ograf recorders.
+
+The pins (1-37) of the connector are numbered
+101-137 in the diagrams.
+
+Auxiliary equipment
+The 15-pole Cannon connectors, three in parallel,
+contains outputs for flow and pressure and some
+control signals.
+
+The pins (1—15) of three connectors are numbered
+301-315, 401-415 and 501-515 in the diagrams.
+
+Control terminal
+The 25-pole Cannon connector contains inputs for
+external control of some functions as well as output
+signals.
+
+The pins (1-25) of the connector are numbered
+201-225 in the diagrams.
+
+Inputs
+
+Pin 7: SLAVE START INSP. (OV; 5V DIGITAL CONTROL)
+
+Pin 8: RESP.RATE=U* x 23 breaths/min/V+5
+breaths/min.
+
+Pin 10: SIMVRATE=U* x 14.4 breaths/min/V+4|
+breaths/min.
+
+Pin 12: MINUTE VOLUME EXTERNAL
++0.05V <> +1% of set minute volume
+
+Pin 13: PEEP LEVEL=U* x 24cm H,0/V-10 cm H,0.
+
+Pin 21: SLAVE CLOCK (OV;5V DIGITAL CONTROL)
+
+Pin 22: PATIENT TRIG. (OV,5V DIGITAL CONTROL)
+
+Pin 23: UPPER PRESSURE EXCEEDED (OV; 5V DIGITAL
+CONTROL)
+
+Pin 25: INSP. PRESSURE (ABOVE PEEP)=U* x 40 cm
+HOV.
+
+U*=The on the actual pin supplied voltage. 0 volt should be
+connected to pin 2 or 14.
+
+Outputs
+Pin 9: MASTER START INSP. (OV; 5V output)
+Pin 11: MASTER CLOCK (OV; 5V output)
+
+= Not valid for SV 900 D
+
+43
+
+--- Page 44 ---
+Disassembling
+
+Pneumatic unit
+
+Electronic unit
+
+--- Page 45 ---
+Step motor assembly
+and pull magnet
+
+Make sure that connectors Make sure that the silicone rubber tube is not twis-
+
+are properly positioned
+
+ls
+
+Panel knob with safety catches
+
+--- Page 46 ---
+Adjustments
+
+46
+
+Replacement of flow transducer
+The FLOW TRANSDUCER spare part includes a sepa-
+rate serial number label with the same number as
+the transducer. When replacing the FLOW TRANS-
+DUCER, the connection plug label must be replaced
+with the new label.
+
+Adjustment of meters Z1 and Z2
+© Set Z1 and Z2 to zero mechanically.
+
+Adjustment of valve arm
+
+Pressure plate with plastic tab
+
+These instructions are only applicable for valve arm
+which is mechanically actuated by a plastic tab on the
+pressure plate.
+
+Remove the bellows.
+
+Connect the device to the high pressure gas
+supply.
+
+e Push down the pressure plate and release the pres-
+sure until you can clearly hear that the controlled
+inlet valve opens.
+
+© With the valve in the nearly open position, the
+distance A must be approximately 55 mm.
+
+Ifthe distance A deviates from 55 mm (i.e. the
+controlled inlet valve opens too soon or too late),
+take out the gas supply unit and carefully bend
+the lever arm as shown in the picture.
+
+Pressure plate with magnet
+
+For gas supply unit with covered valve arm activated
+by a magnet on the pressure plate, only the magnet
+on the pressure plate can be adjusted sideways. See
+page 11 and ”Magnet kit for Servo Ventilator —
+Mounting instructions”, Order no: 91 05 487 E313E.
+
+--- Page 47 ---
+Replacement and adjustment of R5
+
+Note — This adjustment is of vital importance for
+faultless operation.
+
+Loosen (but do not remove) the Allen screws on the
+
+control knob. There are two screws on old knobs and
+
+one screw on new knobs.
+
+Protect the front panel with a soft cloth. Carefully
+
+insert a screwdriver or similar bladed tool behind the
+
+scale unit and lever it away from the front panel.
+
+Remove the complete scale unit.
+
+Pull out PC board no 2 (PC 756) to separate R5 from
+
+the electric circuitry of the ventilator during the
+
+adjustment.
+
+Connect an ohmmeter between the two pins used on
+
+RS and turn the potentiometer shaft until the ohm-
+
+meter shows approx. 500 ohms.
+
+Set the scale on the scale unit to 1.0 and lock the scale
+
+in this position.
+
+Apply glue (Mega-Firm or similar) to the guide hole
+
+in the front panel.
+
+Carefully put the scale unit in position without
+
+allowing the potentiometer shaft to turn.
+
+Tighten the Allen screws.
+
+Check that the resistance between the two pins used
+
+on RS is from 475 to 525 ohms. Otherwise, repeat the
+
+procedure described above.
+
+Push down PC board no 2 into correct position.
+
+Calibrate the ventilator according to the instructions in
+
+the chapter Calibration in the Operating Manual.
+
+.
+
+Removing the front panel knobs
+¢ Usea knife or your fingernail to pull of the
+protective cap.
+
+e Loosen the nut and pull off the knob.
+
+N.B. When putting the knobs back, it is important
+that they are mounted with the correct torque. Use a
+dynamometric wrench and set the following values:
+
+@ knobs with 21 mm diameter: 155 Nem (13.7 Ibf.in).
+
+© knobs with 19.5 mm diameter (oxygen alarm): 115
+Nem (10.2 Ibf.in).
+
+47
+
+--- Page 48 ---
+When exchanging any of the potentiometers on the
+
+front panel, use the table below for adjustments.
+
+© Connect a digital voltmeter between OV (REF)
+(black wire) and the middle point of the actual
+potentiometer.
+
+¢ Adjust the potentiometer to the reading stated in
+the table.
+
+© Carefully mount the knob at the readingstated
+in the table.
+
+© Turn to the checkpoint and check the reading on
+the DVM.
+
+Potentiometer DVM Tolerance Scale Check DVM reading ‘Tolerance
+number reading setting point
+
+RA L1l1V_1.099-1123V 20 352 153V.«2.128-2.178V
+RG 1.057V 1.045-1.069V 60 30 0.337V 0.313-0.361V
+RB 0.250V 0.238-0.262V 2 ~10 1.250V 1.226-1.274V
+
+rtm aan
+
+TF TORT VOT —>
+
+£49. OAL YOL. i —, amas
+4P Mh, YO. m9—f ‘ie
+PEAK PRESS. cm #0 —
+
+PAUSE PRESS cm mid
+
+MEAN AIRWAY PRESS c= 0"
+
+SERVO VENTILATOR QQQC
+
+48 (—]= Not valid for SV 900 D —“SSRi#REA= Not valid for SV 900 E
+
+--- Page 49 ---
+Troubleshooting
+
+Before you start any troubleshooting, begin, if possi-
+ble, by questioning the person reporting the fault.
+Ask about front panel control settings, gas connec-
+tions, patient connections and how the fault appe-
+ared.
+
+Make sure that there has been no operating error.
+For this purpose, see also the chapter Trouble-
+shooting in the Operating Manual.
+
+There should be a logical trend in your tracing of
+the fault or faulty function. Therefore, first try to
+trace the faulty function, i. e. regulation of inspira-
+tion, regulation of expiration, monitoring, timing,
+voltage supply etc., and then the faulty part.
+
+Always start the troubleshooting in the pneu-
+matic unit since malfunctions very rarely occur in
+the electronic unit.
+
+If you use the block diagram and the principle
+diagram (at the beginning of this Service Manual),
+the troubleshooting and servicing should not cause
+any difficulties.
+
+When you have found the faulty function, the most
+suitable procedure is to track down the exact fault by
+systematically replacing individual parts, one at a
+time.
+
+When systematically replacing the various parts,
+always start with the transducers (when used).
+
+After exchanging transducer or any PC board, the
+calibration should always be checked. For de-
+tails, see chapter Calibration in the Operating
+Manual.
+
+When servicing a Servo Ventilator 900 C/D/E, we
+recommend the use of the Siemens-Elema Service
+Case which is available in two versions:
+
+Service Case for SV 900 C/D/E, 50. Hz.
+Order no: 90 13 236 E347E.
+Service Case for SV 900 C/D/E, 60 Hz.
+Order no: 90 13 244 E347 E.
+
+Spare parts
+
+All spare and exchange parts in the Servo Ventilator
+Systems are listed and pictured in the catalogue
+*Spare and exchange parts”, Order no: 90 34570
+E323E.
+
+49
+
+--- Page 50 ---
+Malfunction
+
+Leakage in the relief valve
+in spite of normal working pressure
+The controlled inlet valve opens too soon.
+
+The gas supply to the ventilator via the upper
+(low-pressure) inlet is too high.
+
+The edge of the bellows actuates the lever.
+
+Uneven working pressure
+The lever arm of the relief/safety valve has
+slipped off its guide pins.
+
+If the ventilator has not been used for some time
+the bellows may have compressed.
+
+The gas flow to the upper (low-pressure) inlet is
+too low.
+
+Sudden pressure drops in the gas supply system
+when gas mixer is used.
+
+Leakage in the controlled inlet valve.
+
+Airway pressure reading is
+obviously incorrect
+Leakage in ventilator.
+
+The connections of the bacteria filter are not
+tight.
+
+The bacteria filter of a pressure transducer
+is clogged.
+
+The pressure transducer is defective.
+Fault in AIRWAY PRESSURE AMPLIFIER.
+
+PC board 766 and /or the wiring to the AIRWAY
+PRESSURE meter is defective.
+
+50
+
+Action
+
+Check the opening positions as described in
+Adjustments, page 46.
+
+Se Troubleshooting in the Operating Manual.
+
+Adjust the bellows position between the
+pressure plates.
+
+Put the lever arm back in position.
+
+Extend the bellows as far as possible several
+times.
+
+See Troubleshooting in the Operating Manual.
+Check the gas supply and the mixer.
+
+Adjust the valve or exchange the gas supply unit.
+
+Perform a leakage test as described in the
+Operating Manual.
+
+Tighten the connections.
+Replace the bacteria filter.
+
+Replace the pressure transducer.
+
+When the pressure transducer has been
+replaced, the ventilator must be calibrated
+as described in the Operating Manual.
+
+Replace TRANSDUCER INTERFACE (PC765) and
+calibrate as described in the Operating
+Manual.
+
+Replace PC board 766 and/or repair the wiring.
+
+--- Page 51 ---
+Malfunction
+
+The preset inspiratory minute volume
+deviates considerably from the indicated
+expiratory minute volume.
+
+Leakage in ventilator.
+
+Malfunction in regulation of inspiration.
+
+Malfunction in monitoring of expiration.
+
+The transducers and/or connections have been
+mixed up.
+
+Water drops on the wire mesh net or in the
+measuring channel of a flow transducer.
+
+The wire mesh net is damaged or contaminated
+by dried deposits from disinfectants and/or
+patient secretions.
+
+Maifunctions in the regulation of
+inspiration
+The inspiratory flow transducer is defective.
+
+The multi-turn potentiometer PRESET INSP. MIN.
+VOL. I/min is defective.
+
+Fault in PC board 765, PC board 759,PC board
+760 or PC board 761.
+
+Action
+
+Perform a leakage test as described in the
+Operating Manual.
+
+Calibrate the ventilator as described in the
+Operating Manual. If the inspiratory flow trans-
+ducer cannot be calibrated, the fault is in
+
+the regulation of inspiration.
+
+Calibrate as described in the Operating Manual.
+If the expiratory flow transducer cannot be
+calibrated, the fault is in the monitoring of
+expiration.
+
+Check that the numbers on the connector and the
+transducer agree.
+
+Allow the flow transducer to dry (built-in heating
+element) before you start the calibration procedure.
+This applies to the expiratory flow transducer.
+
+The inspiratory flow transducer must be dried by
+other means.
+
+DO NOT USE A HAIRDRIER!
+
+Replace the flow transducer or wire mesh net.
+
+Replace the transducer and calibrate the ventilator
+as described in the Operating Manual.
+
+Replace the potentiometer.
+
+Replace the board in question.
+
+Malfunctions in regulation of expiration
+
+The expiratory pressure transducer is defective.
+
+PC board 758 is defective.
+PC board 765 is defective.
+
+Flow regulated ventilation does not work
+properly.
+
+Pressure regulated ventilation does not work
+properly.
+
+Both flow and pressure regulated ventilation
+out of order.
+
+[J = Not valid for SV 900 D
+
+Replace the transducer and calibrate the ventilator
+as described in the Operating Manual.
+
+Replace the PC board.
+Replace the PC board.
+Replace PC board 759.
+
+Check pressure transducer (I).
+Replace if necessary.
+
+Check pressure transducer (E).
+Replace if necessary.
+
+Replace PC board 760.
+
+Replace PC board 759.
+
+Replace PC board 760.
+Replace PC board 759.
+Replace step motor/insp. valve.
+
+es = Not valid for SV 900 E 51
+
+--- Page 52 ---
+index
+
+N.B. This is an index of all blocks used in SV 900 C/D/E.
+
+Function blocks in Included in main block PC board no Page
+_ alphabetic order
+Active filter
+
+amet pee 2
+3 (PC 75)
+
+Regulation of f inspiration
+ee!
+
+RES
+
+Se, — a
+
+~ (PC36ERPC 367). 18
+pa SERRE
+
+we ie 189) :
+a mR EES
+
+ros 3
+
+PRE he
+
+ers ee
+
+ulation of inspiration 5 (PC 759)
+
+_ — ee Ee.
+se Mc
+Input/output
+“On conc. Se Monitoring
+
+52
+
+--- Page 53 ---
+atom
+
+Ere
+noex
+
+Function blocks in Included in main block PC board no Page
+Pm order =
+
+e757)»
+“APC TB)
+
+sn See od
+
+minute timer
+
+~ +15V regul lation oS
+
+--- Page 54 ---
+Notes
+
+--- Page 55 ---
+1 1 _ it 4 ‘
+
+tid =
+i — — 10 rtm parca
+EE Hy _ fw —— tse fra —") aM —]A104 F——— - 3 : — | eve fos:
+Hiner 7 | traxsoucer “RANSODCER i: VALE rRANSOUCER fawsoucER ‘TRANSOUEER _ a __}vanvefoune|
+a _ a a Lop
+orton —
+fr) WOLIAGE FaNluRe
+rat
+poston | siep a
+wwocaToR | MOTOR YOGI
+W 7] 7 W 7 7 7
+. wows Is wef sie away er'nn neva agavit ep vou anago non Pout
+2 (owt INSP FLOW Point wait waive] More PRESSURE ( fof F201 PRESSURE REGULATOR EGULANDR Ma SAGE
+ANPLIER lrcmnnce! |} saveators ro | frat | fo AeUFIR rear MPU HOMtTOE Wawsoucen Jae
+Loz commen gd cron] | cnsto t | INTERFACE
+Se aimee cso mds oe) muds nady | wo _ muda me nde wiho PNEUMATIC UNIT shi |
+a arse ey _taa Asat PRESSURE IEISOaW bor} ELECTRONIC UNIT
+aa = HL Tabar] — 2 Ta
+POEP UgvEL po —@ PREP UCL {somv/mbar)
+TTI ATIRE
+c Foe «| Cos t0)
+slaw REFERENCE LEVEL -— REGULATION OF INSPIRATION 7 7 t REGULATION OF EXPIRATION _
+rn) ESS, EXTERNAL y { 1 re a ae +] i £
+5 ass ‘] | fas‘) | [oo “ nis TT] sue | \ wer “T) ace“) Pou
+re SP PRESS, stant s t
+wt OR AAPL INS. HE OPENING ren FasiTon roman} —t} tae LL | inc seat COMPENSA MAGNET
+“1 seuec On mance ULAR contra PROTECTOR tower he a 486 octay
+nike Pane jatar) !
+et
+2 fy 1
+wo0e t—7 moe Avent
+. we Fite * ise ress canoe voce * awecrion * sie ere 7 awe | | eT MMC " puse Pu
+ne P se e :
+toe eae Cie is 6A) ressune uve ROR SIGNAL OG covretico SPEED woTOR ‘owe Or mauTE passe} ORMR | | 1 acne von HABE
+sel otNeaaTon REBEL corosare! 7) cucuton SELECTOR SSCIUATOR SELECTION rave AAO value 7 1 aoutarion Dee
+uM 7 MONTORING, 1 exe mui vou. | n
+Insewave c SS she} i ! PARA EYE FLOW. 4
+oe he poe 1 @ aye eh
+5 7 q : H 1
+4S Gut rower oF ower oFF |
+5 Out | piel rome cma oun pa \ ' VOLTAGE SUPPLY
+ar uve oscitaTon pO te) ad 1 ee =
+2H, 1 t a} 29001
+A wednc - “ 1 1 RESULATION
+B G ML Loren ov |
+ZA START UP RESET (eats 7 7 ow
+Tee TG 6
+(xs owe) SEE Be { sexs SAL ever LY uve 7 !
+INSP PRESSURE REF a se J | sean onion t '
+i me
+1
+1 TIMING H \
+fz manure vod] nse Mute] saghec 280 oDe mo0e bo counter Reser rg ro. leg JER] ine 1 ued banat
+TERA] YOUUME SETI SECT conreo. Sood UP a rT
+eae atc Se. Fw TOICATOR orc esi | PTEEION Oni i cnn Seems
+Ss A,
+Foow (72y/t/s} ts 3 MODE Mone 1 UNIT taf Ref
+saa | \ L
+C — (5¥ 900035 MODE Li} 3 ~ cena
+. é , 7 7 ster PRESSURE i} &
+RG. rc _| nse riow Fraga wee mare si fy INse aX. YOO NRWAY i
+see (eve NEA vouume 1) couner mace TIMING ARWAY
+SELECT A0uUST IZATION ADNSTMENT {- \
+%
+START UP MAN, VENT
+Le 1004 7
+OA esp rate 3900" INNS
+EXTERNAL DE pe au A EAN a ‘i
+7 7 5 5 TBA 3 t 1 -
+MAK VENT Wa. en, ARID ug (LOCK 18, TME SP. TIME oF FLOW 1 a
+LUNG FLOW Tattec | vouume ‘él PULSE ERP TME noe nme |p NEAR 1 ouirut
+ACT LEVEL covroesxton|— db | ston GENERATOR MUDPLEXER TAT108 1 aaa cnn winaER— 5M) BUTTE
+POLE NUMBER
+in serLow scat op hm a > (an H P= PIN CONTACT
+vox vox YOM2A_ SLAVE START INS. | [HASTE ray) i W Ge) «N= BUSH CONTACT '
+— STARL [WS_P3 82 1 i
+q 4 Ope amieicit 1 t puro comnecon nee nPUL/orFu
+3 3H, 5 5] 7 7 7 z i ; PC-SOARD NUMBER
+wsloc_| constant | pg own voune 1wsp. FLOW Vea 74) inv suv pause sc | 20 ENG Hl H 1 @®
+flow or ‘COMPENSATOR NFOSAN = bd ed HOLD Cnet Be FLOW T oseay [Tr ‘SV 9006/0 ELECTRONIC UNITE
+ATIERN seuecron cucuaroy fm) hy | sercearor cuguaton Conor} 1 Lov pase] ' {RPO eR RTD
+1 \_— MANUAL VENTS AIG PCTBL [A
+SE RE TO) t TL mar owen 7 a Yo
+WS? TIMELLOCKTO. =~ rm to Ana wse.fiow _E regan 4 Pe te ve (SZ Suprty {SHEP motor ave pcm |
+000 43. ——>]I] fr OAL vu, (5/1) " nN unit 5 IN towmot Fe |
+se "5 iy pave 4389} Lyon c= INTEGRAT "AS OTe : CONTROL iM
+ACCELERATING ow ‘Apowt rane! |] sy soon 10% Lp RAE XP. MINUTE VOLINFANIS 2,0V/1/ A _¢F ‘tine CONTROL ALIS? |P
+now FP EA] artcan  p_SLECTED From REE A@ iow | | PAYSE TIME pak ARWAY PRESSURE 10) 30 Tee PEAK PRESSURE {SOnw/mbor) py vo SOLAGUALION (2)? AOL CECT RIS fp
+eaniern [VY] SuEctON SIMY.RATE | pats ko t 5 ca... -rmnlosnar ee |
+wie nbs ia] passe reso Someta) 7 28a {o-rnont pact)
+ot ‘ es MEAN PRESUME (SHmV/mbor) __FIALIGA _ — reac Hea
+u
+ous Sn
+60), / vooe fresh Ase SSE), ose usd\ feat 0d Situ BLOCK DIAGRAM
+PRE ‘nse mn 4 i 4 UME SLE =
+SWITCH JM SUECT VOLUME, ‘seuect JX setect Hoo HOLD 02 CONCENTRATION (S0aW /%) NB 200 | () mr ee m ie
+1 T$¥oe veo 51913 1g R0596 [5] 84. 01.04%%06 [i] 86..272352| mae near a — dg }—
+f 2 [SXoe.25 00 575] cf #3 06 27 0 86.01. 2351G)) 89.01.08: 209 aeecen E347 | 90 30 867
+7 D T 7 T 7 7 a a a TT 7 T * F T © T = 7 € T 7 T 7
+
+--- Page 56 ---
+Servo Ventilator 900C/D/E — Service Manual
+Order No. 93 82 912 E314E
+
+© Siemens-Elema AB, 1988 - 1994. Subject to alterations without prior notice. Price: Group C. Printed in Sweden.
+Issued by Siemens-Elema AB, Life Support Systems Division, $1194 3,
+Marketing Communications, S-171 95 SOLNA, Sweden. 3rd English edition, November 1994
+
+PERSSONS OPPser
+
