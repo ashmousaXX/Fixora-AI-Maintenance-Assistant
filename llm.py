@@ -1,9 +1,10 @@
 import json
 import os
 import re
+import time
 
 from dotenv import load_dotenv
-from groq import Groq
+from groq import Groq, RateLimitError
 
 
 # =========================================================
@@ -57,6 +58,35 @@ def truncate_speech_text(text, limit=180):
 
     # No full sentence fits — fall back to last full word, add a period
     return truncated.rsplit(" ", 1)[0].rstrip(",") + "."
+
+
+# =========================================================
+# Call Groq with automatic retry on a transient rate limit
+# =========================================================
+
+def call_groq_with_retry(messages, max_retries=3, wait_seconds=3):
+    """
+    Calls the Groq chat completion endpoint, retrying automatically if
+    the free-tier rate limit (tokens-per-minute) is hit. The API's own
+    error message typically asks for only a couple of seconds' wait, so
+    a short fixed delay is enough — this just prevents a single busy
+    moment from crashing a live demo or a batch evaluation run.
+    """
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                temperature=0.2,
+            )
+        except RateLimitError:
+            if attempt == max_retries - 1:
+                raise
+            print(
+                f"[INFO] Groq rate limit hit — waiting {wait_seconds}s "
+                f"before retry {attempt + 1}/{max_retries - 1}..."
+            )
+            time.sleep(wait_seconds)
 
 
 # =========================================================
@@ -146,8 +176,7 @@ Answer the question using only the evidence above.
 Return raw JSON only.
 """
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
+    response = call_groq_with_retry(
         messages=[
             {
                 "role": "system",
@@ -158,7 +187,6 @@ Return raw JSON only.
                 "content": user_prompt,
             },
         ],
-        temperature=0.2,
     )
 
     raw = (
@@ -168,6 +196,20 @@ Return raw JSON only.
         .content
         .strip()
     )
+
+    # -----------------------------------------------------
+    # Guard against a genuinely empty completion from the API
+    # -----------------------------------------------------
+
+    if not raw:
+        fallback_text = (
+            "The assistant did not return a response for this query. "
+            "Please try rephrasing the question or asking again."
+        )
+        return {
+            "display_answer": fallback_text,
+            "speech_answer": fallback_text,
+        }
 
     # -----------------------------------------------------
     # Remove accidental markdown code fences

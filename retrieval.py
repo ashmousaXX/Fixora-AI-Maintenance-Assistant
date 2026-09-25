@@ -548,12 +548,55 @@ def retrieve(
 
 
     # Semantic search
+    #
+    # When no device was pre-selected, do this in TWO stages instead of
+    # one global search: first a cheap probe (top_k=1) across every
+    # device just to find which single device is the best match, then a
+    # second search restricted to ONLY that device for the real top_k.
+    # Without this, the top-5 results can freely mix chunks from
+    # unrelated devices (e.g. a ventilator query pulling in an
+    # ultrasound machine's chunk just because it ranked 4th globally),
+    # and the LLM ends up blending both into one answer.
+
+    search_device_id = device_id
+
+    if search_device_id is None:
+
+        probe_results = semantic_search(
+            query=query,
+            device_id=None,
+            top_k=1,
+        )
+
+        if not probe_results["documents"][0]:
+
+            return {
+                "retrieval_type": "not_found",
+                "detected_error_code": error_code,
+                "detected_device": None,
+                "results": probe_results,
+            }
+
+        probe_distance = probe_results["distances"][0][0]
+
+        if probe_distance > MAX_DISTANCE:
+
+            return {
+                "retrieval_type": "not_found",
+                "detected_error_code": error_code,
+                "detected_device": None,
+                "results": probe_results,
+            }
+
+        search_device_id = probe_results["metadatas"][0][0].get(
+            "device_id", ""
+        )
 
     semantic_results = semantic_search(
 
         query=query,
 
-        device_id=device_id,
+        device_id=search_device_id,
 
         top_k=top_k,
 

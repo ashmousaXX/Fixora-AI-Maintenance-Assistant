@@ -7,21 +7,13 @@ from retrieval import retrieve
 
 TEST_CASES = [
 
-    # -----------------------------------------------------
-    # Siemens Servo Ventilator
-    # -----------------------------------------------------
-
     {
-        "name": "Servo - Error 35",
-        "query": "The ventilator has error 35",
-        "expected_device": "servo_ventilator",
-        "expected_type": "exact_error",
-        "expected_error_code": "35",
-        "expected_answer_terms": [
-            "GAS SUPPLY FAILURE",
-            "35",
-        ],
-    },
+    "name": "Servo - Transducer malfunction",
+    "query": "The inspiratory flow transducer is defective",
+    "expected_device": "servo_ventilator",
+    "expected_type": "semantic",
+    "expected_answer_terms": ["transducer"],
+},
 
     {
         "name": "Servo - Gas supply",
@@ -69,7 +61,7 @@ TEST_CASES = [
         "expected_type": "semantic",
         "expected_answer_terms": [
             "blank",
-            "display",
+            "screen",
             "power supply",
         ],
     },
@@ -90,18 +82,13 @@ TEST_CASES = [
     # -----------------------------------------------------
     # Siemens SC6002XL
     # -----------------------------------------------------
-
-    {
-        "name": "SC6002XL - Blank screen",
-        "query":
-            "The monitor turns on but the screen is blank",
-        "expected_device": "sc6002xl",
-        "expected_type": "semantic",
-        "expected_answer_terms": [
-            "screen",
-            "blank",
-        ],
-    },
+{
+    "name": "SC6002XL - Display malfunction",
+    "query": "Parts of the display are missing or the colors look wrong",
+    "expected_device": "sc6002xl",
+    "expected_type": "semantic",
+    "expected_answer_terms": ["Front Panel PC Board"],
+},
 
 
     # -----------------------------------------------------

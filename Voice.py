@@ -1,7 +1,17 @@
 import os
 
-import sounddevice as sd
-import soundfile as sf
+try:
+    import sounddevice as sd
+    import soundfile as sf
+    _MIC_AVAILABLE = True
+except OSError:
+    # PortAudio isn't available in this environment (e.g. a cloud
+    # server with no audio hardware). Local mic recording via
+    # record_audio() won't work here, but that's fine — a Streamlit
+    # deployment records audio in the user's browser via
+    # st.audio_input() instead, and never calls record_audio() at all.
+    _MIC_AVAILABLE = False
+
 import torch
 
 from dotenv import load_dotenv
@@ -81,6 +91,12 @@ print(
 def record_audio(
     duration=RECORD_SECONDS,
 ):
+    if not _MIC_AVAILABLE:
+        raise RuntimeError(
+            "Microphone recording isn't available in this environment. "
+            "Use the Streamlit st.audio_input widget instead when "
+            "running as a web app."
+        )
 
     print(
         f"Recording for {duration} seconds..."
@@ -281,12 +297,7 @@ def voice_query():
         answer
     )
 
-
-
-    # -------------------------
     # TTS
-    # -------------------------
-
     if speech_text:
 
         print()
@@ -294,30 +305,16 @@ def voice_query():
         print(
             "Speech:"
         )
-
-
         print(
             speech_text
         )
-
-
         print()
-
         print(
             "Generating speech..."
         )
-
-
         generate_speech(
             speech_text
         )
 
-
-
-# =========================================================
-# Main
-# =========================================================
-
 if __name__ == "__main__":
-
     voice_query()
