@@ -389,6 +389,9 @@ def evaluate_answers():
             query=case["query"],
             top_k=5,
         )
+        print("Context sent to LLM:")
+        print(rag_result.get("context", "")[:1500])
+        print("-" * 40)
 
         answer = rag_result.get(
             "answer",

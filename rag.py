@@ -176,7 +176,7 @@ def build_rag_context(
 
 def answer_query(
     query,
-    top_k=5,
+    top_k=8,
     device_id=None,
 ):
 

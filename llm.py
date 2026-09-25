@@ -176,26 +176,41 @@ Answer the question using only the evidence above.
 Return raw JSON only.
 """
 
-    response = call_groq_with_retry(
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ],
-    )
+    import time
 
-    raw = (
-        response
-        .choices[0]
-        .message
-        .content
-        .strip()
-    )
+    MAX_RETRIES = 2
+
+    def call_groq_with_retry(system_prompt, user_prompt):
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.2,
+                    max_completion_tokens=1200,
+                    reasoning_effort="low",
+                )
+                finish_reason = response.choices[0].finish_reason
+                content = response.choices[0].message.content
+
+                # DEBUG:
+                print(f"[DEBUG] attempt={attempt} finish_reason={finish_reason} "
+                    f"content_len={len(content) if content else 0}")
+
+                if content and content.strip():
+                    return content.strip()
+                last_error = f"Empty content, finish_reason={finish_reason}"
+            except Exception as error:
+                last_error = str(error)
+                print(f"[DEBUG] attempt={attempt} exception: {last_error}")
+            time.sleep(1.5)
+        raise RuntimeError(f"Groq call failed after retries: {last_error}")
+
+    raw = call_groq_with_retry(system_prompt, user_prompt)
 
     # -----------------------------------------------------
     # Guard against a genuinely empty completion from the API
@@ -216,11 +231,9 @@ Return raw JSON only.
     # -----------------------------------------------------
 
     if raw.startswith("```"):
-
         raw = raw.strip("`").strip()
 
         if raw.lower().startswith("json"):
-
             raw = raw[4:].strip()
 
     # -----------------------------------------------------
@@ -228,7 +241,6 @@ Return raw JSON only.
     # -----------------------------------------------------
 
     try:
-
         parsed = json.loads(raw)
 
         display_answer = str(
@@ -264,15 +276,11 @@ Return raw JSON only.
         speech_answer = truncate_speech_text(speech_answer)
 
         return {
-            "display_answer":
-                display_answer,
-
-            "speech_answer":
-                speech_answer,
+            "display_answer": display_answer,
+            "speech_answer": speech_answer,
         }
 
     except json.JSONDecodeError:
-
         # -------------------------------------------------
         # Fallback if LLM did not return valid JSON
         # -------------------------------------------------
@@ -281,9 +289,6 @@ Return raw JSON only.
         speech_answer = truncate_speech_text(speech_answer)
 
         return {
-            "display_answer":
-                raw,
-
-            "speech_answer":
-                speech_answer,
+            "display_answer": raw,
+            "speech_answer": speech_answer,
         }
