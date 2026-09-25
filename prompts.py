@@ -85,10 +85,13 @@ descriptive information, and references. Do not add a concluding
 instruction unless that instruction is explicitly present in the
 manual evidence.
 
-14. If the evidence includes DANGER, WARNING, or CAUTION language,
-surface that first, before any other cause or action, in both
-display_answer and speech_answer.
-
+14.If the evidence includes DANGER, WARNING, or CAUTION language, surface
+that first, before any other cause or action, in both display_answer and
+speech_answer. Only do this when the word DANGER, WARNING, or CAUTION
+literally appears in the provided manual evidence — never add a danger or
+warning label on your own initiative just because the evidence lacks an
+exact troubleshooting match (that situation is covered by Rule 3 only,
+and should never be flagged as a safety warning).
 15. Return valid JSON only, with exactly these two keys:
 
 {
