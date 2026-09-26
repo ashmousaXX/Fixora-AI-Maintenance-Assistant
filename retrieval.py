@@ -3,6 +3,7 @@ import re
 import chromadb
 
 from sentence_transformers import SentenceTransformer
+from rank_bm25 import BM25Okapi
 from config import (
     PROCESSED_DIR,
     VECTOR_DB_DIR,
@@ -20,6 +21,11 @@ EMBEDDING_MODEL_NAME = (
 COLLECTION_NAME = "maintai_manuals"
 
 MAX_DISTANCE = 0.55
+
+# How many candidates BM25 should look at per device before fusing
+# with the semantic results. Keyword search is cheap, so we can
+# afford to scan the whole device corpus instead of a small pool.
+BM25_TOP_K = 20
 
 
 embedding_model = SentenceTransformer(
@@ -395,6 +401,201 @@ def semantic_search(
 
 
 # =========================================================
+# Keyword (BM25) Search
+# =========================================================
+#
+# Dense embeddings alone can rank an exact-term match low if the
+# query is phrased differently than the manual (e.g. query says
+# "power supply problem" but the manual chunk says "voltage supply").
+# BM25 catches these cases because it scores on literal token
+# overlap, independent of embedding geometry.
+#
+# Scoped to a single device_id (found first via the semantic probe
+# in retrieve()) so this stays cheap even on a large multi-manual
+# corpus.
+
+_bm25_cache = {}
+
+
+def _get_bm25_index(device_id):
+    """Build (and cache) a BM25 index over every chunk of one device."""
+
+    if device_id in _bm25_cache:
+        return _bm25_cache[device_id]
+
+    client = chromadb.PersistentClient(
+        path=str(VECTOR_DB_DIR)
+    )
+
+    collection = client.get_collection(
+        name=COLLECTION_NAME
+    )
+
+    data = collection.get(
+        where={"device_id": device_id}
+    )
+
+    ids = data["ids"]
+    texts = data["documents"]
+    metadatas = data["metadatas"]
+
+    tokenized_corpus = [
+        re.findall(r"[a-z0-9]+", text.lower())
+        for text in texts
+    ]
+
+    bm25 = BM25Okapi(tokenized_corpus)
+
+    entry = {
+        "bm25": bm25,
+        "ids": ids,
+        "texts": texts,
+        "metadatas": metadatas,
+    }
+
+    _bm25_cache[device_id] = entry
+
+    return entry
+
+
+def keyword_search(
+    query,
+    device_id,
+    top_k=BM25_TOP_K,
+):
+
+    index = _get_bm25_index(device_id)
+
+    tokenized_query = re.findall(
+        r"[a-z0-9]+",
+        query.lower(),
+    )
+
+    scores = index["bm25"].get_scores(tokenized_query)
+
+    ranked_positions = sorted(
+        range(len(scores)),
+        key=lambda i: scores[i],
+        reverse=True,
+    )[:top_k]
+
+    # Drop zero-score matches; they add noise, not signal.
+    ranked_positions = [
+        i for i in ranked_positions if scores[i] > 0
+    ]
+
+    return {
+        "ids": [index["ids"][i] for i in ranked_positions],
+        "documents": [index["texts"][i] for i in ranked_positions],
+        "metadatas": [index["metadatas"][i] for i in ranked_positions],
+        "scores": [scores[i] for i in ranked_positions],
+    }
+
+
+
+# =========================================================
+# Hybrid Search (semantic order preserved, BM25 used as a RESCUE)
+# =========================================================
+#
+# Earlier version used full Reciprocal Rank Fusion, giving BM25 equal
+# weight to semantic similarity. That backfired: a chunk that merely
+# repeats the query's literal words (e.g. a general "gas supply is
+# regulated" description) would outrank the chunk that actually
+# answers the question but uses different wording (e.g. "Leakage in
+# ventilator"), because BM25 has no notion of "this is the actionable
+# troubleshooting answer" vs "this is background description".
+#
+# So instead we treat BM25 as a targeted rescue, not a re-ranker:
+#   - The semantic ranking is trusted and left untouched.
+#   - We only ask BM25 one question: "is there an exact-term match
+#     that semantic search missed entirely?"
+#   - If yes, that single best keyword hit is added, replacing only
+#     the weakest (highest-distance) semantic candidate — so a
+#     correct exact-term chunk (like one mentioning "voltage supply")
+#     can still surface even if semantic search buried it, without
+#     disturbing chunks semantic search already got right.
+
+def hybrid_search(
+    query,
+    device_id,
+    top_k=8,
+):
+
+    semantic_results = semantic_search(
+        query=query,
+        device_id=device_id,
+        top_k=top_k,
+    )
+
+    semantic_ids = list(semantic_results["ids"][0])
+    documents = list(semantic_results["documents"][0])
+    metadatas = list(semantic_results["metadatas"][0])
+    distances = list(semantic_results["distances"][0])
+
+    if not semantic_ids:
+        return semantic_results
+
+    keyword_results = keyword_search(
+        query=query,
+        device_id=device_id,
+        top_k=BM25_TOP_K,
+    )
+
+    # Find the single best keyword hit that semantic search missed
+    # entirely (not just ranked low — genuinely absent from the pool).
+    rescue_index = None
+
+    for idx, doc_id in enumerate(keyword_results["ids"]):
+        if doc_id not in semantic_ids:
+            rescue_index = idx
+            break
+
+    if rescue_index is not None:
+
+        rescue_text = keyword_results["documents"][rescue_index]
+
+        query_embedding = embedding_model.encode(
+            query,
+            normalize_embeddings=True,
+        )
+
+        rescue_embedding = embedding_model.encode(
+            rescue_text,
+            normalize_embeddings=True,
+        )
+
+        rescue_distance = float(
+            1.0 - (rescue_embedding @ query_embedding)
+        )
+
+        # Swap out the weakest current slot (highest distance) for
+        # the rescued chunk, so the total candidate count stays the
+        # same and the LLM context doesn't balloon.
+        weakest_position = distances.index(max(distances))
+
+        semantic_ids[weakest_position] = keyword_results["ids"][rescue_index]
+        documents[weakest_position] = rescue_text
+        metadatas[weakest_position] = keyword_results["metadatas"][rescue_index]
+        distances[weakest_position] = rescue_distance
+
+    # Re-sort everything by distance so "Best semantic distance" and
+    # the source ordering shown to the LLM stay consistent (closest
+    # match first), regardless of whether a rescue happened.
+    order = sorted(
+        range(len(semantic_ids)),
+        key=lambda i: distances[i],
+    )
+
+    return {
+        "ids": [[semantic_ids[i] for i in order]],
+        "documents": [[documents[i] for i in order]],
+        "metadatas": [[metadatas[i] for i in order]],
+        "distances": [[distances[i] for i in order]],
+    }
+
+
+
+# =========================================================
 # Exact Error Search
 # =========================================================
 
@@ -547,7 +748,7 @@ def retrieve(
 
 
 
-    # Semantic search
+    # Hybrid search (semantic + BM25)
     #
     # When no device was pre-selected, do this in TWO stages instead of
     # one global search: first a cheap probe (top_k=1) across every
@@ -557,6 +758,11 @@ def retrieve(
     # unrelated devices (e.g. a ventilator query pulling in an
     # ultrasound machine's chunk just because it ranked 4th globally),
     # and the LLM ends up blending both into one answer.
+    #
+    # The second stage now fuses semantic + BM25 (see hybrid_search)
+    # instead of relying on semantic distance alone, so an exact
+    # domain term in the manual (e.g. "voltage supply") isn't missed
+    # just because the query used different wording.
 
     search_device_id = device_id
 
@@ -592,7 +798,7 @@ def retrieve(
             "device_id", ""
         )
 
-    semantic_results = semantic_search(
+    semantic_results = hybrid_search(
 
         query=query,
 

@@ -121,6 +121,12 @@ def contains_expected_terms(
     """
     Check whether important expected terms
     appear in the returned answer.
+
+    Multi-word terms (e.g. "voltage supply") are checked as a set of
+    words present anywhere in the text, not as one exact phrase in
+    that exact order — manuals often phrase the same fact the other
+    way round ("supply voltage"), and that's still a correct match,
+    not a missing fact.
     """
 
     text = normalize(text)
@@ -132,7 +138,18 @@ def contains_expected_terms(
 
     for term in expected_terms:
 
-        if normalize(term) not in text:
+        term_normalized = normalize(term)
+        words = term_normalized.split()
+
+        if len(words) > 1:
+            found = all(
+                word in text
+                for word in words
+            )
+        else:
+            found = term_normalized in text
+
+        if not found:
             missing.append(term)
 
     return len(missing) == 0, missing

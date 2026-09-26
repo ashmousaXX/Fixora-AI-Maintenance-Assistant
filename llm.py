@@ -17,6 +17,15 @@ load_dotenv()
 
 MODEL_NAME = "openai/gpt-oss-20b"
 
+# Raised from 1200 -> 2500. The completeness rules in prompts.py now
+# require the model to enumerate every relevant Malfunction/Action
+# entry, and this model spends part of its token budget on internal
+# reasoning (even at reasoning_effort="low") before writing the
+# actual JSON answer. With 1200 tokens, a case with many relevant
+# entries (e.g. 5+ malfunctions) could exhaust the budget mid-answer,
+# producing finish_reason="length" and truncated, invalid JSON.
+MAX_COMPLETION_TOKENS = 2500
+
 client = Groq(
     api_key=os.getenv("GROQ_API_KEY")
 )
@@ -65,16 +74,22 @@ def truncate_speech_text(text, limit=180):
 # =========================================================
 # Call Groq with automatic retry
 #
-# Handles two distinct failure modes with one retry loop:
+# Handles three distinct failure modes with one retry loop:
 #   - RateLimitError from the Groq client (transient, free-tier TPM caps)
 #   - A "successful" response with empty content (occasionally the model
 #     returns finish_reason without usable text)
+#   - finish_reason == "length": the model was cut off mid-answer
+#     because it hit max_completion_tokens. The returned text looks
+#     "successful" (no exception, non-empty content) but is truncated
+#     and usually not valid JSON, so it must be retried rather than
+#     accepted.
 #
 # NOTE: this replaces the previous version of llm.py, which defined
 # call_groq_with_retry twice — once at module level (handling only
 # RateLimitError) and again, shadowing it, inside generate_answer()
 # (handling only empty content). Neither retried on both failure
-# modes. This single version retries on either.
+# modes, and neither caught truncation. This single version retries
+# on all three.
 # =========================================================
 
 def call_groq_with_retry(
@@ -89,7 +104,7 @@ def call_groq_with_retry(
                 model=MODEL_NAME,
                 messages=messages,
                 temperature=0.2,
-                max_completion_tokens=1200,
+                max_completion_tokens=MAX_COMPLETION_TOKENS,
                 reasoning_effort="low",
             )
             finish_reason = response.choices[0].finish_reason
@@ -101,9 +116,24 @@ def call_groq_with_retry(
                 f"content_len={len(content) if content else 0}"
             )
 
-            if content and content.strip():
+            if finish_reason == "length":
+                # Looks "successful" but is cut off mid-answer -- do
+                # not accept this, it will almost always fail JSON
+                # parsing downstream.
+                last_error = (
+                    f"Truncated at max_completion_tokens "
+                    f"({MAX_COMPLETION_TOKENS}), finish_reason=length"
+                )
+                print(
+                    f"[INFO] Response truncated (finish_reason=length) — "
+                    f"retrying {attempt + 1}/{max_retries}..."
+                )
+
+            elif content and content.strip():
                 return content.strip()
-            last_error = f"Empty content, finish_reason={finish_reason}"
+
+            else:
+                last_error = f"Empty content, finish_reason={finish_reason}"
 
         except RateLimitError:
             last_error = "Rate limit hit"
