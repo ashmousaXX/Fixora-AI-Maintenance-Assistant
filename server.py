@@ -1,43 +1,28 @@
 import os
+import time
 import uuid
 import tempfile
-
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from dotenv import load_dotenv
 from groq import Groq
 import torch
 from transformers import pipeline
-
 from rag import answer_query
-
-
-# =========================================================
-# Configuration
-# =========================================================
 
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 STT_MODEL = "openai/whisper-large-v3-turbo"
-
 TTS_MODEL = "canopylabs/orpheus-v1-english"
 TTS_VOICE = "troy"
 
 RECORDINGS_DIR = os.path.join(BASE_DIR, "voice_recordings")
 os.makedirs(RECORDINGS_DIR, exist_ok=True)
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY not found in .env")
-
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-
-# =========================================================
-# Load STT model once at startup (not per-request)
-# =========================================================
 
 print(f"Loading STT model: {STT_MODEL}")
 
@@ -47,38 +32,16 @@ stt = pipeline(
     device=-1,
     dtype=torch.float32,
 )
-
 print("STT model loaded.")
-
-
-# =========================================================
-# Flask app
-# =========================================================
-
 app = Flask(__name__)
-
-
-# ---------------------------------------------------------
-# Serve the chat UI itself
-# ---------------------------------------------------------
 
 @app.route("/")
 def index():
     return send_from_directory(BASE_DIR, "fixora-ui.html")
 
-
-# ---------------------------------------------------------
-# Health check
-# ---------------------------------------------------------
-
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok"})
-
-
-# ---------------------------------------------------------
-# Ask a question (RAG)
-# ---------------------------------------------------------
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
@@ -88,10 +51,12 @@ def ask():
     if not query:
         return jsonify({"error": "query is required"}), 400
 
+    t0 = time.time()
     result = answer_query(
         query=query,
         top_k=8,
     )
+    print(f"[timing] /api/ask (retrieval + LLM) took {time.time() - t0:.2f}s")
 
     return jsonify(
         {
@@ -102,10 +67,6 @@ def ask():
         }
     )
 
-
-# ---------------------------------------------------------
-# Text-to-speech
-# ---------------------------------------------------------
 
 @app.route("/api/speech", methods=["POST"])
 def speech():
@@ -120,32 +81,21 @@ def speech():
         f"reply_{uuid.uuid4().hex}.wav",
     )
 
+    t0 = time.time()
     response = groq_client.audio.speech.create(
         model=TTS_MODEL,
         voice=TTS_VOICE,
         input=text,
         response_format="wav",
     )
-
     response.write_to_file(output_path)
+    print(f"[timing] /api/speech (TTS, {len(text)} chars) took {time.time() - t0:.2f}s")
 
     return send_file(
         output_path,
         mimetype="audio/wav",
     )
 
-
-# ---------------------------------------------------------
-# Speech-to-text
-# ---------------------------------------------------------
-#
-# NOTE: browser microphone recordings (via the MediaRecorder API used
-# in fixora-ui.html) typically arrive as WebM/Opus, not WAV. Decoding
-# that requires ffmpeg to be installed and on PATH on this machine.
-# If transcription fails with a decoding error, install ffmpeg
-# (https://ffmpeg.org/download.html) and make sure `ffmpeg` runs from
-# a plain terminal.
-# ---------------------------------------------------------
 
 @app.route("/api/transcribe", methods=["POST"])
 def transcribe():
@@ -164,6 +114,7 @@ def transcribe():
         temp_path = temp_file.name
 
     try:
+        t0 = time.time()
         result = stt(
             temp_path,
             generate_kwargs={
@@ -172,19 +123,12 @@ def transcribe():
             },
         )
         text = result["text"].strip()
+        print(f"[timing] /api/transcribe (STT) took {time.time() - t0:.2f}s")
     finally:
         os.remove(temp_path)
 
     return jsonify({"text": text})
 
 
-# =========================================================
-# Run
-# =========================================================
-
 if __name__ == "__main__":
-    app.run(
-        debug=True,
-        port=5000,
-    )
-    
+    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
