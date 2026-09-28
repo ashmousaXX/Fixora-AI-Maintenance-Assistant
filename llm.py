@@ -8,7 +8,7 @@ from groq import Groq, RateLimitError
 from prompts import SYSTEM_PROMPT, build_user_prompt
 
 load_dotenv()
-MODEL_NAME = "openai/gpt-oss-20b"
+MODEL_NAME = "openai/gpt-oss-120b"
 MAX_COMPLETION_TOKENS = 2500
 
 client = Groq(
@@ -57,8 +57,8 @@ def truncate_speech_text(text, limit=180):
 
 def call_groq_with_retry(
     messages,
-    max_retries=2,
-    wait_seconds=1.5,
+    max_retries=4,
+    wait_seconds=8,
 ):
     last_error = None
     for attempt in range(max_retries + 1):
@@ -72,35 +72,38 @@ def call_groq_with_retry(
             )
             finish_reason = response.choices[0].finish_reason
             content = response.choices[0].message.content
-
-            # DEBUG:
-            print(
-                f"[DEBUG] attempt={attempt} finish_reason={finish_reason} "
-                f"content_len={len(content) if content else 0}"
-            )
+            print(f"[DEBUG] attempt={attempt} finish_reason={finish_reason} content_len={len(content) if content else 0}")
 
             if finish_reason == "length":
-                last_error = (
-                    f"Truncated at max_completion_tokens "
-                    f"({MAX_COMPLETION_TOKENS}), finish_reason=length"
-                )
-                print(
-                    f"[INFO] Response truncated (finish_reason=length) — "
-                    f"retrying {attempt + 1}/{max_retries}..."
-                )
-
+                last_error = f"Truncated, finish_reason=length"
             elif content and content.strip():
                 return content.strip()
-
             else:
                 last_error = f"Empty content, finish_reason={finish_reason}"
 
-        except RateLimitError:
+        except RateLimitError as e:
+            wait = wait_seconds
+            try:
+                retry_after = e.response.headers.get("retry-after")
+                if retry_after:
+                    wait = float(retry_after)
+            except Exception:
+                pass
+
+            if wait > 60:
+                raise RuntimeError(
+                    f"Groq daily/rate quota exhausted — retry after {wait:.0f}s"
+                )
+
             last_error = "Rate limit hit"
             print(
-                f"[INFO] Groq rate limit hit — waiting {wait_seconds}s "
-                f"before retry {attempt + 1}/{max_retries}..."
+                f"[INFO] Groq rate limit — waiting {wait}s before retry "
+                f"{attempt + 1}/{max_retries}..."
             )
+            time.sleep(wait)
+
+            continue
+
         except Exception as error:
             last_error = str(error)
             print(f"[DEBUG] attempt={attempt} exception: {last_error}")

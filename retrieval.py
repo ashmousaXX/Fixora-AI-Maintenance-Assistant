@@ -313,11 +313,11 @@ def keyword_search(
         range(len(scores)),
         key=lambda i: scores[i],
         reverse=True,
-    )[:top_k]
+    )
 
     ranked_positions = [
         i for i in ranked_positions if scores[i] > 0
-    ]
+    ][:top_k]
     return {
         "ids": [index["ids"][i] for i in ranked_positions],
         "documents": [index["texts"][i] for i in ranked_positions],
@@ -326,7 +326,8 @@ def keyword_search(
     }
 
 # =========================================================
-# Hybrid Search (semantic order preserved, BM25 used as a RESCUE)
+# Hybrid Search
+# Semantic + BM25 candidates combined using RRF
 # =========================================================
 
 def hybrid_search(
@@ -334,58 +335,289 @@ def hybrid_search(
     device_id,
     top_k=8,
 ):
+    """
+    Combine semantic and BM25 retrieval using
+    Reciprocal Rank Fusion (RRF).
+
+    Semantic search captures meaning/similarity.
+    BM25 captures exact lexical/keyword matches.
+
+    RRF is used only for ranking candidates.
+
+    IMPORTANT:
+    After fusion, candidates are filtered using
+    MAX_DISTANCE before they are returned to the LLM.
+    This prevents weak semantic matches from entering
+    the final RAG context just because they ranked well
+    through BM25/RRF.
+    """
+
+    # -----------------------------------------------------
+    # 1. Semantic candidates
+    # -----------------------------------------------------
+
+    semantic_top_k = max(
+        top_k * 3,
+        24,
+    )
+
     semantic_results = semantic_search(
         query=query,
         device_id=device_id,
-        top_k=top_k,
+        top_k=semantic_top_k,
     )
-    semantic_ids = list(semantic_results["ids"][0])
-    documents = list(semantic_results["documents"][0])
-    metadatas = list(semantic_results["metadatas"][0])
-    distances = list(semantic_results["distances"][0])
 
-    if not semantic_ids:
-        return semantic_results
+    semantic_ids = list(
+        semantic_results["ids"][0]
+    )
+
+    semantic_documents = list(
+        semantic_results["documents"][0]
+    )
+
+    semantic_metadatas = list(
+        semantic_results["metadatas"][0]
+    )
+
+    semantic_distances = list(
+        semantic_results["distances"][0]
+    )
+
+    # -----------------------------------------------------
+    # 2. BM25 candidates
+    # -----------------------------------------------------
+
     keyword_results = keyword_search(
         query=query,
         device_id=device_id,
         top_k=BM25_TOP_K,
     )
-    rescue_index = None
-    for idx, doc_id in enumerate(keyword_results["ids"]):
-        if doc_id not in semantic_ids:
-            rescue_index = idx
-            break
 
-    if rescue_index is not None:
-        rescue_text = keyword_results["documents"][rescue_index]
-        query_embedding = embedding_model.encode(
-            query,
-            normalize_embeddings=True,
-        )
-        rescue_embedding = embedding_model.encode(
-            rescue_text,
-            normalize_embeddings=True,
-        )
-        rescue_distance = float(
-            1.0 - (rescue_embedding @ query_embedding)
-        )
-        weakest_position = distances.index(max(distances))
-        semantic_ids[weakest_position] = keyword_results["ids"][rescue_index]
-        documents[weakest_position] = rescue_text
-        metadatas[weakest_position] = keyword_results["metadatas"][rescue_index]
-        distances[weakest_position] = rescue_distance
-    order = sorted(
-        range(len(semantic_ids)),
-        key=lambda i: distances[i],
+    keyword_ids = list(
+        keyword_results["ids"]
     )
-    return {
-        "ids": [[semantic_ids[i] for i in order]],
-        "documents": [[documents[i] for i in order]],
-        "metadatas": [[metadatas[i] for i in order]],
-        "distances": [[distances[i] for i in order]],
-    }
 
+    keyword_documents = list(
+        keyword_results["documents"]
+    )
+
+    keyword_metadatas = list(
+        keyword_results["metadatas"]
+    )
+
+    # -----------------------------------------------------
+    # 3. Build candidate lookup table
+    # -----------------------------------------------------
+
+    candidates = {}
+
+    # Add semantic candidates
+    for idx, doc_id in enumerate(
+        semantic_ids
+    ):
+        candidates[doc_id] = {
+            "id": doc_id,
+            "document":
+                semantic_documents[idx],
+            "metadata":
+                semantic_metadatas[idx],
+            "semantic_distance":
+                float(
+                    semantic_distances[idx]
+                ),
+            "semantic_rank":
+                idx + 1,
+            "bm25_rank":
+                None,
+        }
+
+    # Add BM25 candidates
+    for idx, doc_id in enumerate(
+        keyword_ids
+    ):
+        if doc_id not in candidates:
+
+            candidates[doc_id] = {
+                "id": doc_id,
+                "document":
+                    keyword_documents[idx],
+                "metadata":
+                    keyword_metadatas[idx],
+                "semantic_distance":
+                    None,
+                "semantic_rank":
+                    None,
+                "bm25_rank":
+                    idx + 1,
+            }
+
+        else:
+            candidates[doc_id]["bm25_rank"] = (
+                idx + 1
+            )
+
+    if not candidates:
+        return {
+            "ids": [[]],
+            "documents": [[]],
+            "metadatas": [[]],
+            "distances": [[]],
+        }
+
+    # -----------------------------------------------------
+    # 4. Calculate semantic distance for BM25-only
+    #    candidates
+    # -----------------------------------------------------
+
+    query_embedding = None
+
+    for candidate in candidates.values():
+
+        if candidate["semantic_distance"] is not None:
+            continue
+
+        if query_embedding is None:
+            query_embedding = (
+                embedding_model.encode(
+                    query,
+                    normalize_embeddings=True,
+                )
+            )
+
+        document_embedding = (
+            embedding_model.encode(
+                candidate["document"],
+                normalize_embeddings=True,
+            )
+        )
+
+        candidate["semantic_distance"] = float(
+            1.0
+            -
+            (
+                document_embedding
+                @
+                query_embedding
+            )
+        )
+
+    # -----------------------------------------------------
+    # 5. Filter weak semantic matches
+    # -----------------------------------------------------
+
+    filtered_candidates = [
+        candidate
+        for candidate in candidates.values()
+        if candidate["semantic_distance"]
+        <= MAX_DISTANCE
+    ]
+
+    if not filtered_candidates:
+        return {
+            "ids": [[]],
+            "documents": [[]],
+            "metadatas": [[]],
+            "distances": [[]],
+        }
+
+        # -----------------------------------------------------
+    # 4. Reciprocal Rank Fusion
+    # -----------------------------------------------------
+
+    RRF_K = 60
+
+    for candidate in filtered_candidates:
+
+        rrf_score = 0.0
+
+        if candidate.get("semantic_rank") is not None:
+            rrf_score += (
+                1.0
+                /
+                (
+                    RRF_K
+                    + candidate["semantic_rank"]
+                )
+            )
+
+        if candidate.get("bm25_rank") is not None:
+            rrf_score += (
+                1.0
+                /
+                (
+                    RRF_K
+                    + candidate["bm25_rank"]
+                )
+            )
+
+        # IMPORTANT:
+        # Every candidate must receive an RRF score
+        # before sorting.
+        candidate["rrf_score"] = rrf_score
+
+    # -----------------------------------------------------
+    # 5. Sort by fused ranking
+    # -----------------------------------------------------
+
+    ranked_candidates = sorted(
+    filtered_candidates,
+    key=lambda item: (
+        item.get("rrf_score", 0.0),
+        (
+            -item["semantic_distance"]
+            if item.get("semantic_distance") is not None
+            else float("-inf")
+        ),
+    ),
+    reverse=True,
+)
+
+    # -----------------------------------------------------
+    # 6. Keep final top-k
+    # -----------------------------------------------------
+
+    ranked_candidates = ranked_candidates[:top_k]
+    # -----------------------------------------------------
+    # 9. Prepare Chroma-like result structure
+    # -----------------------------------------------------
+
+    result_ids = []
+    result_documents = []
+    result_metadatas = []
+    result_distances = []
+
+    for candidate in ranked_candidates:
+
+        result_ids.append(
+            candidate["id"]
+        )
+
+        result_documents.append(
+            candidate["document"]
+        )
+
+        result_metadatas.append(
+            candidate["metadata"]
+        )
+
+        result_distances.append(
+            candidate["semantic_distance"]
+        )
+
+    return {
+        "ids": [
+            result_ids
+        ],
+        "documents": [
+            result_documents
+        ],
+        "metadatas": [
+            result_metadatas
+        ],
+        "distances": [
+            result_distances
+        ],
+    }
 
 
 # =========================================================
@@ -431,8 +663,6 @@ def exact_error_search(
 # =========================================================
 
 def detect_error_code(query):
-
-
     patterns = [
         r"\berror\s+code\s+(\d{1,5})\b",
         r"\berror\s+(\d{1,5})\b",
@@ -440,19 +670,15 @@ def detect_error_code(query):
         r"\bE[-\s]?(\d{1,5})\b",
         r"\bERR[-\s]?(\d{1,5})\b",
     ]
-
     for pattern in patterns:
         match = re.search(
             pattern,
             query,
             re.IGNORECASE,
         )
-
         if match:
             return match.group(1)
     return None
-
-
 
 # =========================================================
 # Main Retrieval
@@ -531,12 +757,8 @@ def retrieve(
                 semantic_results,
         }
     best_distance = semantic_results["distances"][0][0]
-    print(
-        f"Best semantic distance: {best_distance:.4f}"
-    )
-    print(
-        f"Maximum allowed distance: {MAX_DISTANCE:.4f}"
-    )
+    print(f"Best semantic distance: {best_distance:.4f}")
+    print(f"Maximum allowed distance: {MAX_DISTANCE:.4f}")
 
     if best_distance > MAX_DISTANCE:
         return {
@@ -582,7 +804,7 @@ def test_retrieve():
     )
     result = retrieve(
         query=query,
-        top_k=5,
+        top_k=8,
     )
     print("="*70)
     print(
