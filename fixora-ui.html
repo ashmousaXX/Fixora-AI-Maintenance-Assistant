@@ -226,10 +226,15 @@
 <!-- ===================== Voice-mode overlay ===================== -->
 <div id="voiceOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center px-6 text-center"
      style="background:rgba(0,0,0,.55); backdrop-filter:blur(6px)">
-  <div id="voiceOrb" class="glow-orb"></div>
+  <div id="voiceOrb" class="glow-orb" onclick="finishRecording()" style="cursor:pointer"></div>
   <p id="voiceStatus" class="mt-6 text-lg font-medium" style="color:var(--purple)">Listening...</p>
   <div id="voiceCaption" class="assistant-text mt-4 max-w-lg max-h-48 overflow-y-auto text-sm" style="color:var(--text)"></div>
-  <button onclick="stopVoiceMode()" class="mt-8 px-4 py-2 rounded-full border text-sm row-hover" style="border-color:var(--border); color:var(--text)">Cancel</button>
+  <div class="mt-8 flex gap-3">
+    <button onclick="finishRecording()" class="px-5 py-2 rounded-full text-sm font-medium"
+            style="background:var(--purple); color:#fff">Done</button>
+    <button onclick="cancelVoiceMode()" class="px-4 py-2 rounded-full border text-sm row-hover"
+            style="border-color:var(--border); color:var(--text)">Cancel</button>
+  </div>
 </div>
 
 <script>
@@ -384,15 +389,16 @@
   }
 
   // ---------------- Shared: ask the backend + render the assistant turn ----------------
-  function askServer(text) {
+  function askServer(text, signal) {
     return fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: text }),
-    }).then((res) => res.json());
-  }
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: text }),
+    signal,
+  }).then((res) => res.json());
+}
 
- function appendAssistantMessage(data) {
+  function appendAssistantMessage(data) {
     const audioId = 'audio-' + Date.now() + Math.random().toString(36).slice(2);
     const deviceBadge = data.device ? `<span class="device-badge">🔧 ${escapeHtml(data.device)}</span>` : '';
     const answerHtml = (typeof marked !== 'undefined') ? marked.parse(data.answer || '') : `<p>${escapeHtml(data.answer || '')}</p>`;
@@ -479,158 +485,190 @@
         if (btn) { btn.disabled = false; btn.textContent = '🔊 Listen'; }
       });
   }
+ // ---------------- Voice mode ----------------
+let mediaRecorder = null, audioChunks = [], isRecording = false;
+let currentVoiceAudio = null, audioContext = null, analyser = null, visualizerFrameId = null;
+let voiceStream = null, voiceAbort = null, voiceCancelled = false;
 
-  // ---------------- Voice mode: record -> transcribe -> ask -> speak, with orb states ----------------
-  let mediaRecorder = null;
-  let audioChunks = [];
-  let isRecording = false;
-  let currentVoiceAudio = null;
-  let audioContext = null;
-  let analyser = null;
-  let visualizerFrameId = null;
+const SILENCE_MS = 1500;   
+const MAX_RECORD_MS = 25000;
+const SPEECH_LEVEL = 0.04;  
 
-  function startAudioVisualizer(stream) {
-    try {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
+function startAudioVisualizer(stream) {
+  try {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioContext.resume();
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
 
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    const buf = new Uint8Array(analyser.fftSize);
+    const startedAt = performance.now();
+    let heardSpeech = false, lastVoiceAt = startedAt;
 
-      const tick = () => {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-        const avg = sum / dataArray.length;
-        const scale = 1 + Math.min(avg / 90, 0.45);
-        voiceOrb.style.transform = `scale(${scale.toFixed(3)})`;
-        visualizerFrameId = requestAnimationFrame(tick);
-      };
-      tick();
-    } catch (e) {
-      /* Web Audio unsupported — the orb just stays static while listening */
-    }
-  }
+    const tick = () => {
+      analyser.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      const rms = Math.sqrt(sum / buf.length);
+      voiceOrb.style.transform = `scale(${(1 + Math.min(rms * 6, 0.5)).toFixed(3)})`;
 
-  function stopAudioVisualizer() {
-    if (visualizerFrameId) cancelAnimationFrame(visualizerFrameId);
-    visualizerFrameId = null;
-    if (audioContext) {
-      try { audioContext.close(); } catch (e) {}
-      audioContext = null;
-    }
-    analyser = null;
-    voiceOrb.style.transform = '';
-  }
-
-    function setVoiceState(state) {
-    voiceOrb.classList.remove('orb-thinking', 'orb-speaking');
-    if (state === 'listening') { voiceStatus.textContent = 'Listening...'; }
-    else if (state === 'thinking') { voiceOrb.style.transform = ''; voiceOrb.classList.add('orb-thinking'); voiceStatus.textContent = 'Thinking...'; }
-    else if (state === 'speaking') { voiceOrb.classList.add('orb-speaking'); voiceStatus.textContent = 'Speaking...'; }
-  }
-
-  function openVoiceOverlay() {
-    voiceOverlay.classList.remove('hidden');
-    voiceOverlay.classList.add('flex');
-  }
-
-  function stopVoiceMode() {
-    voiceOverlay.classList.add('hidden');
-    voiceOverlay.classList.remove('flex');
-    stopAudioVisualizer();
-    if (currentVoiceAudio) { try { currentVoiceAudio.pause(); } catch (e) {} currentVoiceAudio = null; }
-    if (isRecording && mediaRecorder) { try { mediaRecorder.stop(); } catch (e) {} isRecording = false; }
-    micBtn.disabled = false;
-    micBtn.style.background = 'var(--purple)';
-    micBtn.classList.remove('scale-110');
-  }
-
-  async function toggleMic() {
-    if (micBtn.disabled) return;
-
-    if (!isRecording) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-        mediaRecorder.onstop = () => {
-          stream.getTracks().forEach((t) => t.stop());
-          const blob = new Blob(audioChunks, { type: 'audio/webm' });
-          sendVoiceMessage(blob);
-        };
-        mediaRecorder.start();
-        isRecording = true;
-        micBtn.style.background = '#ef4444';
-        micBtn.classList.add('scale-110');
-        voiceCaption.innerHTML = '';
-        openVoiceOverlay();
-        setVoiceState('listening');
-        startAudioVisualizer(stream);
-      } catch (err) {
-        alert('Microphone access was denied or is unavailable in this browser.');
+      const now = performance.now();
+      if (rms > SPEECH_LEVEL) { heardSpeech = true; lastVoiceAt = now; }
+      if (isRecording) {
+        if (heardSpeech && now - lastVoiceAt > SILENCE_MS) { finishRecording(); return; }
+        if (now - startedAt > MAX_RECORD_MS) { finishRecording(); return; }
       }
-      } else {
-      stopAudioVisualizer();
-      mediaRecorder.stop();
-      isRecording = false;
-      micBtn.disabled = true;
-      micBtn.classList.remove('scale-110');
-      setVoiceState('thinking');
-    }
-  }
-
-  function sendVoiceMessage(blob) {
-    const formData = new FormData();
-    formData.append('audio', blob, 'input.webm');
-
-    fetch('/api/transcribe', { method: 'POST', body: formData })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data.text) {
-          voiceCaption.textContent = 'No speech detected — try again.';
-          setTimeout(stopVoiceMode, 1500);
-          return;
-        }
-
-        voiceCaption.textContent = `"${data.text}"`;
-
-        return askServer(data.text).then((answer) => {
-          if (answer.speech_answer) {
-            speakInVoiceMode(answer.speech_answer, answer.answer);
-          } else {
-            voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(answer.answer || '') : escapeHtml(answer.answer || '');
-            setTimeout(stopVoiceMode, 4000);
-          }
-        });
-      })
-      .catch(() => {
-        voiceCaption.textContent = 'Something went wrong. Make sure server.py is running.';
-        setTimeout(stopVoiceMode, 1800);
-      });
+      visualizerFrameId = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (e) { /* Web Audio unsupported */ }
 }
 
-function speakInVoiceMode(text, answerText) {
-    setVoiceState('speaking');
-    voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(answerText || '') : escapeHtml(answerText || '');
+function stopAudioVisualizer() {
+  if (visualizerFrameId) cancelAnimationFrame(visualizerFrameId);
+  visualizerFrameId = null;
+  if (audioContext) { try { audioContext.close(); } catch (e) {} audioContext = null; }
+  analyser = null;
+  voiceOrb.style.transform = '';
+}
 
-    fetch('/api/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+function setVoiceState(state, label) {
+  voiceOrb.classList.remove('orb-thinking', 'orb-speaking');
+  if (state === 'listening') voiceStatus.textContent = label || 'Listening...';
+  else if (state === 'thinking') { voiceOrb.style.transform = ''; voiceOrb.classList.add('orb-thinking'); voiceStatus.textContent = label || 'Thinking...'; }
+  else if (state === 'speaking') { voiceOrb.classList.add('orb-speaking'); voiceStatus.textContent = label || 'Speaking...'; }
+}
+
+function openVoiceOverlay() { voiceOverlay.classList.remove('hidden'); voiceOverlay.classList.add('flex'); }
+
+function resetVoiceUi() {
+  voiceOverlay.classList.add('hidden');
+  voiceOverlay.classList.remove('flex');
+  stopAudioVisualizer();
+  voiceOrb.classList.remove('orb-thinking', 'orb-speaking');
+  micBtn.disabled = false;
+  micBtn.style.background = 'var(--purple)';
+  micBtn.classList.remove('scale-110');
+}
+
+function cancelVoiceMode() {
+  voiceCancelled = true;
+  if (voiceAbort) { voiceAbort.abort(); voiceAbort = null; }
+  if (currentVoiceAudio) { try { currentVoiceAudio.pause(); } catch (e) {} currentVoiceAudio = null; }
+  if (isRecording && mediaRecorder) { isRecording = false; try { mediaRecorder.stop(); } catch (e) {} }
+  if (voiceStream) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; }
+  resetVoiceUi();
+}
+const stopVoiceMode = cancelVoiceMode; 
+
+function finishRecording() {
+  if (!isRecording || !mediaRecorder) return;
+  isRecording = false;
+  stopAudioVisualizer();
+  micBtn.disabled = true;
+  setVoiceState('thinking', 'Transcribing...');
+  mediaRecorder.stop();
+}
+
+async function toggleMic() {
+  if (micBtn.disabled) return;
+  if (isRecording) { finishRecording(); return; }
+
+  voiceCancelled = false;
+  voiceCaption.innerHTML = '';
+  openVoiceOverlay();                                  
+  setVoiceState('listening', 'Requesting microphone...');
+
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    resetVoiceUi();
+    alert('Microphone access was denied or is unavailable in this browser.');
+    return;
+  }
+  if (voiceCancelled) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; return; }
+
+  audioChunks = [];
+  mediaRecorder = new MediaRecorder(voiceStream);
+  mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    if (voiceStream) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; }
+    if (voiceCancelled) return;                         // ده اللي كان ناقص
+    sendVoiceMessage(new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' }));
+  };
+  mediaRecorder.start();
+  isRecording = true;
+  micBtn.style.background = '#ef4444';
+  setVoiceState('listening');
+  startAudioVisualizer(voiceStream);
+}
+
+function sendVoiceMessage(blob) {
+  if (blob.size < 1000) {
+    voiceCaption.textContent = 'No speech detected — try again.';
+    setTimeout(cancelVoiceMode, 1500);
+    return;
+  }
+  voiceAbort = new AbortController();
+  const signal = voiceAbort.signal;
+  const formData = new FormData();
+  formData.append('audio', blob, 'input.webm');
+  setVoiceState('thinking', 'Transcribing...');
+
+  fetch('/api/transcribe', { method: 'POST', body: formData, signal })
+    .then((res) => res.json())
+    .then((data) => {
+      const text = (data.text || '').trim();
+      if (!text) {
+        voiceCaption.textContent = 'No speech detected — try again.';
+        setTimeout(cancelVoiceMode, 1500);
+        return;
+      }
+      voiceCaption.textContent = `"${text}"`;
+      setVoiceState('thinking', 'Checking the manuals...');
+
+      showHeroToChat();
+      chatView.insertAdjacentHTML('beforeend', userBubbleHtml(text));
+      pushMessage('user', text);
+
+      return askServer(text, signal).then((answer) => {
+        appendAssistantMessage(answer);
+        if (answer.speech_answer) {
+          speakInVoiceMode(answer.speech_answer, answer.answer, signal);
+        } else {
+          voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(answer.answer || '') : escapeHtml(answer.answer || '');
+          setTimeout(cancelVoiceMode, 4000);
+        }
+      });
     })
-      .then((res) => { if (!res.ok) throw new Error('tts failed'); return res.blob(); })
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        currentVoiceAudio = audio;
-        audio.onended = stopVoiceMode;
-        audio.play().catch(stopVoiceMode);
-      })
-      .catch(stopVoiceMode);
+    .catch((err) => {
+      if (err && err.name === 'AbortError') return;
+      voiceCaption.textContent = 'Something went wrong. Make sure server.py is running.';
+      setTimeout(cancelVoiceMode, 1800);
+    });
+}
+
+function speakInVoiceMode(text, answerText, signal) {
+  setVoiceState('thinking', 'Preparing voice...');
+  voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(answerText || '') : escapeHtml(answerText || '');
+
+  fetch('/api/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+    signal,
+  })
+    .then((res) => { if (!res.ok) throw new Error('tts failed'); return res.blob(); })
+    .then((blob) => {
+      const audio = new Audio(URL.createObjectURL(blob));
+      currentVoiceAudio = audio;
+      audio.onended = cancelVoiceMode;
+      audio.onplay = () => setVoiceState('speaking');  
+      audio.play().catch(cancelVoiceMode);
+    })
+    .catch((err) => { if (!(err && err.name === 'AbortError')) cancelVoiceMode(); });
 }
   // ---------------- Export current conversation as a Word (.doc) file ----------------
   function exportChatToDoc() {

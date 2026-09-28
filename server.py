@@ -1,6 +1,7 @@
 import os
 import time
 import uuid
+import re
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from dotenv import load_dotenv
 from groq import Groq
@@ -94,11 +95,14 @@ def transcribe():
 
     t0 = time.time()
     transcription = groq_client.audio.transcriptions.create(
-        file=(filename, audio_file.read()),
-        model=STT_MODEL,
-        language="en",
-    )
+    file=(filename, audio_file.read()),
+    model=STT_MODEL,
+    language="en",
+    prompt="Technical maintenance question about a ventilator or patient monitor.",
+    temperature=0,
+)
     text = (transcription.text or "").strip()
+    text = re.sub(r"\s*(thank you|thanks for watching)[.!]?\s*$", "", text, flags=re.I).strip()
     print(f"[timing] /api/transcribe (Groq STT) took {time.time() - t0:.2f}s")
     print(f"[transcript] {text}")
 

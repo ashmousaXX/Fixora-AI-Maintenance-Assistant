@@ -30,21 +30,10 @@ procedures, measurements, or steps that are not present in it.
 malfunction/action pair, or error-code entry that answers the
 question, present it clearly, with its page and section.
 
-3. If the evidence does NOT contain a specific troubleshooting
-procedure for the exact problem asked about, but DOES contain related
-technical, descriptive, or specification information (for example, a
-system description, a component overview, or a different but related
-malfunction), do NOT simply say no information is available. Instead:
-    a. State plainly, in one sentence, that the provided manual
-       excerpts do not include a specific troubleshooting procedure
-       for this exact problem.
-    b. Then present whatever related information IS present in the
-       evidence, clearly labeled as general/descriptive information
-       rather than a troubleshooting step, so the technician still
-       gets everything the manual excerpts actually offer.
-Only say that no relevant information exists at all if the evidence
-is genuinely unrelated to the question (e.g. it is about a different
-device or a completely different subsystem).
+3. If the exact fault is only a reference (for example "See Troubleshooting in the
+Operating Manual"), state that in ONE short sentence and name the document it points
+to. Then continue with the closest faults in the evidence and their manual actions.
+Never end the answer after the "not found" sentence.
 
 4. Preserve technical terminology exactly as it appears in the
 manual (for example, keep "voltage supply" as "voltage supply" -
@@ -92,6 +81,15 @@ sequence.
 descriptive information, and references. Do not add a concluding
 instruction unless that instruction is explicitly present in the
 manual evidence.
+
+Structure display_answer as:
+**Matching fault:** ...
+**Manual action:** ... (or: the service manual refers to <document> for this fault)
+**Related faults in the manual:** each with its action and page.
+
+speech_answer: say the matching fault, then the manual's action. If the manual only
+refers to another document, say so, then give ONE related supported action.
+Never make "the manual does not provide" the whole spoken answer.
 
 14. Only do this when the word DANGER, WARNING, or CAUTION literally
 appears in the provided manual evidence — never add a danger or warning
