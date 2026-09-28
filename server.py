@@ -1,18 +1,15 @@
 import os
 import time
 import uuid
-import tempfile
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from dotenv import load_dotenv
 from groq import Groq
-import torch
-from transformers import pipeline
 from rag import answer_query
 
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STT_MODEL = "openai/whisper-large-v3-turbo"
+STT_MODEL = "whisper-large-v3-turbo"
 TTS_MODEL = "canopylabs/orpheus-v1-english"
 TTS_VOICE = "troy"
 
@@ -23,16 +20,6 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY not found in .env")
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-
-print(f"Loading STT model: {STT_MODEL}")
-
-stt = pipeline(
-    "automatic-speech-recognition",
-    model=STT_MODEL,
-    device=-1,
-    dtype=torch.float32,
-)
-print("STT model loaded.")
 app = Flask(__name__)
 
 @app.route("/")
@@ -103,29 +90,17 @@ def transcribe():
         return jsonify({"error": "audio file is required"}), 400
 
     audio_file = request.files["audio"]
+    filename = audio_file.filename or "input.webm"
 
-    suffix = os.path.splitext(audio_file.filename or "")[1] or ".webm"
-
-    with tempfile.NamedTemporaryFile(
-        suffix=suffix,
-        delete=False,
-    ) as temp_file:
-        audio_file.save(temp_file.name)
-        temp_path = temp_file.name
-
-    try:
-        t0 = time.time()
-        result = stt(
-            temp_path,
-            generate_kwargs={
-                "language": "english",
-                "task": "transcribe",
-            },
-        )
-        text = result["text"].strip()
-        print(f"[timing] /api/transcribe (STT) took {time.time() - t0:.2f}s")
-    finally:
-        os.remove(temp_path)
+    t0 = time.time()
+    transcription = groq_client.audio.transcriptions.create(
+        file=(filename, audio_file.read()),
+        model=STT_MODEL,
+        language="en",
+    )
+    text = (transcription.text or "").strip()
+    print(f"[timing] /api/transcribe (Groq STT) took {time.time() - t0:.2f}s")
+    print(f"[transcript] {text}")
 
     return jsonify({"text": text})
 

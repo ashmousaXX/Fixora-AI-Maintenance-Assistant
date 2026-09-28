@@ -485,11 +485,50 @@
   let audioChunks = [];
   let isRecording = false;
   let currentVoiceAudio = null;
+  let audioContext = null;
+  let analyser = null;
+  let visualizerFrameId = null;
 
-  function setVoiceState(state) {
-    voiceOrb.classList.remove('orb-listening', 'orb-thinking', 'orb-speaking');
-    if (state === 'listening') { voiceOrb.classList.add('orb-listening'); voiceStatus.textContent = 'Listening...'; }
-    else if (state === 'thinking') { voiceOrb.classList.add('orb-thinking'); voiceStatus.textContent = 'Thinking...'; }
+  function startAudioVisualizer(stream) {
+    try {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const scale = 1 + Math.min(avg / 90, 0.45);
+        voiceOrb.style.transform = `scale(${scale.toFixed(3)})`;
+        visualizerFrameId = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) {
+      /* Web Audio unsupported — the orb just stays static while listening */
+    }
+  }
+
+  function stopAudioVisualizer() {
+    if (visualizerFrameId) cancelAnimationFrame(visualizerFrameId);
+    visualizerFrameId = null;
+    if (audioContext) {
+      try { audioContext.close(); } catch (e) {}
+      audioContext = null;
+    }
+    analyser = null;
+    voiceOrb.style.transform = '';
+  }
+
+    function setVoiceState(state) {
+    voiceOrb.classList.remove('orb-thinking', 'orb-speaking');
+    if (state === 'listening') { voiceStatus.textContent = 'Listening...'; }
+    else if (state === 'thinking') { voiceOrb.style.transform = ''; voiceOrb.classList.add('orb-thinking'); voiceStatus.textContent = 'Thinking...'; }
     else if (state === 'speaking') { voiceOrb.classList.add('orb-speaking'); voiceStatus.textContent = 'Speaking...'; }
   }
 
@@ -501,6 +540,7 @@
   function stopVoiceMode() {
     voiceOverlay.classList.add('hidden');
     voiceOverlay.classList.remove('flex');
+    stopAudioVisualizer();
     if (currentVoiceAudio) { try { currentVoiceAudio.pause(); } catch (e) {} currentVoiceAudio = null; }
     if (isRecording && mediaRecorder) { try { mediaRecorder.stop(); } catch (e) {} isRecording = false; }
     micBtn.disabled = false;
@@ -529,10 +569,12 @@
         voiceCaption.innerHTML = '';
         openVoiceOverlay();
         setVoiceState('listening');
+        startAudioVisualizer(stream);
       } catch (err) {
         alert('Microphone access was denied or is unavailable in this browser.');
       }
-    } else {
+      } else {
+      stopAudioVisualizer();
       mediaRecorder.stop();
       isRecording = false;
       micBtn.disabled = true;
