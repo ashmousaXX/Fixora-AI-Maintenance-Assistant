@@ -444,14 +444,6 @@ def hybrid_search(
 
     hyde_query = generate_hypothetical_passage(query)
 
-    # -----------------------------------------------------
-    # 1. Semantic candidates
-    # -----------------------------------------------------
-    # device_id is already resolved by the time hybrid_search runs
-    # (retrieve() only calls this after the device-detection probe),
-    # so expand_query's servo-only gate can safely apply here without
-    # affecting device detection.
-
     semantic_top_k = max(
         top_k * 3,
         24,
@@ -620,11 +612,6 @@ def hybrid_search(
     # -----------------------------------------------------
 
     RRF_K = 60
-
-        # Semantic gets more weight than BM25: these manuals reuse the same
-    # vocabulary constantly ("ventilator", "supply", "pressure"), so raw
-    # keyword overlap is a weak signal here and was pulling less-relevant
-    # chunks to rank 1 purely on word frequency.
     SEMANTIC_WEIGHT = 1.5
     BM25_WEIGHT = 1.0
 
@@ -730,29 +717,20 @@ def hybrid_search(
 # =========================================================
 # Exact Error Search
 # =========================================================
+MAX_EXACT_MATCHES = 5
 def exact_error_search(
     error_code,
     device_id=None,
 ):
-    client = chromadb.PersistentClient(
-        path=str(VECTOR_DB_DIR)
-    )
-    collection = client.get_collection(
-        name=COLLECTION_NAME
-    )
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+    collection = client.get_collection(name=COLLECTION_NAME)
     filters = [
-        {
-            "error_code":
-                str(error_code)
-        }
+        {"error_code":str(error_code)}
     ]
 
     if device_id:
         filters.append(
-            {
-                "device_id":
-                    device_id
-            }
+            {"device_id":device_id}
         )
     if len(filters) == 1:
         where_clause = filters[0]
@@ -761,6 +739,10 @@ def exact_error_search(
     results = collection.get(
         where=where_clause
     )
+    if len(results.get("ids", [])) > MAX_EXACT_MATCHES:
+        for key in ("ids", "documents", "metadatas"):
+            if key in results and results[key]:
+                results[key] = results[key][:MAX_EXACT_MATCHES]
     return results
 
 
@@ -768,6 +750,8 @@ def exact_error_search(
 # =========================================================
 # Detect Error Code
 # =========================================================
+
+FALSE_POSITIVE_ERROR_CODES = {"382"}
 
 def detect_error_code(query):
     patterns = [
@@ -784,7 +768,10 @@ def detect_error_code(query):
             re.IGNORECASE,
         )
         if match:
-            return match.group(1)
+            code = match.group(1)
+            if code in FALSE_POSITIVE_ERROR_CODES:
+                return None
+            return code
     return None
 
 # =========================================================

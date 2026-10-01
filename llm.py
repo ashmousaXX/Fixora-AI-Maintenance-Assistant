@@ -113,11 +113,26 @@ def call_groq_with_retry(
 
     raise RuntimeError(f"Groq call failed after retries: {last_error}")
 
+MAX_CONTEXT_CHARS = 8000
+def _truncate_context(context, limit=MAX_CONTEXT_CHARS):
+    if len(context) <= limit:
+        return context
+    truncated = context[:limit]
+
+    last_source = truncated.rfind("\n\nSOURCE ")
+    if last_source > 0:
+        truncated = truncated[:last_source]
+    return truncated + (
+        "\n\n[Additional matching sources were omitted to stay within "
+        "the model's request size limit.]"
+    )
+
 def generate_answer(
     query,
     context,
     device=None,
 ):
+    context = _truncate_context(context)
     system_prompt = SYSTEM_PROMPT
     user_prompt = build_user_prompt(
         query=query,
