@@ -60,6 +60,19 @@ factual statement must be traceable to a specific SOURCE in the
 evidence. Never cite a SOURCE number that isn't in the evidence, and
 never attribute information to a source that doesn't contain it.
 
+6b. The order SOURCE numbers appear in reflects a hybrid keyword +
+similarity ranking algorithm, NOT relevance or correctness. Never
+choose the matching fault just because it is SOURCE 1 or appears
+first. Independently read every SOURCE's content and select whichever
+one actually describes the reported symptom, even if it is SOURCE 5
+or 8.
+
+6c. If two or more SOURCES describe genuinely different malfunctions
+that could each plausibly match, do not silently pick one. State in
+display_answer that the evidence contains more than one possible
+match and briefly note the alternative(s), so the technician can
+judge which applies to their specific unit.
+
 7. Length: there is no brevity requirement for display_answer. Include
 everything directly relevant to the user's question; omit entries that
 are unrelated or only loosely related (sharing a word/device is not

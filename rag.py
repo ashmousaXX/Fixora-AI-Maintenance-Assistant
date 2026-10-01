@@ -1,6 +1,47 @@
+import re
 
 from retrieval import retrieve
 from llm import generate_answer
+
+_GREETING_RE = re.compile(
+    r"^\s*(hi|hello|hey|hiya|yo|good\s*(morning|afternoon|evening))\s*[!.?]*\s*$",
+    re.IGNORECASE,
+)
+_THANKS_RE = re.compile(
+    r"^\s*(thanks|thank you|thx|much appreciated)\s*[!.?]*\s*$",
+    re.IGNORECASE,
+)
+_BYE_RE = re.compile(
+    r"^\s*(bye|goodbye|see you|see ya|take care)\s*[!.?]*\s*$",
+    re.IGNORECASE,
+)
+
+_SMALL_TALK_RESPONSES = {
+    "greeting": (
+        "Hi! I'm Medix. Tell me the device and the symptom you're "
+        "seeing, and I'll pull up what the service manual says."
+    ),
+    "thanks": "You're welcome! Let me know if there's another fault you'd like to check.",
+    "bye": "Take care! Come back anytime you run into another issue.",
+}
+
+
+def _detect_small_talk(query):
+    """
+    Returns "greeting", "thanks", "bye", or None. Only matches when
+    the ENTIRE message is small talk (e.g. "hello"), so a real
+    question that happens to start with "hi" still goes to retrieval.
+    """
+    text = (query or "").strip()
+    if not text:
+        return None
+    if _GREETING_RE.match(text):
+        return "greeting"
+    if _THANKS_RE.match(text):
+        return "thanks"
+    if _BYE_RE.match(text):
+        return "bye"
+    return None
 
 
 # =========================================================
@@ -154,6 +195,24 @@ def answer_query(
     top_k=8,
     device_id=None,
 ):
+    # -----------------------------------------------------
+    # Small talk short-circuit — skip retrieval and the LLM
+    # entirely for a plain greeting/thanks/goodbye.
+    # -----------------------------------------------------
+
+    small_talk = _detect_small_talk(query)
+
+    if small_talk:
+        message = _SMALL_TALK_RESPONSES[small_talk]
+
+        return {
+            "answer": message,
+            "speech_answer": message,
+            "detected_device": None,
+            "retrieval_type": "small_talk",
+            "context": "",
+        }
+
     rag_result = build_rag_context(
         query=query,
         device_id=device_id,
@@ -258,4 +317,3 @@ def test_full_rag():
 
 if __name__ == "__main__":
     test_full_rag()
-

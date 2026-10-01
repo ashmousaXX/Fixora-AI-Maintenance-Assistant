@@ -58,13 +58,6 @@ def fix_medical_terms(text):
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
-# Words that commonly precede a stray number in service-manual prose
-# without that number being an actual device error/fault code (page
-# refs, section numbers, figure numbers, model/part numbers, etc.).
-# With dozens of manuals in the corpus, a bare "code 5" or "fault 12"
-# shows up constantly as ordinary text -- this blocklist filters
-# those out before a match is accepted as a real error code. Keep
-# this in sync with the identical list in retrieval.py.
 ERROR_CODE_FALSE_POSITIVE_CONTEXT = {
     "page", "pg", "p", "chapter", "ch", "section", "sec",
     "table", "tbl", "figure", "fig", "step", "item", "note",
@@ -689,8 +682,6 @@ def extract_servo_malfunction_action_chunks(pages, manual):
         if not malfunctions or not actions:
             continue
 
-        # This page produced at least one usable chunk below, so mark
-        # it as "used" -- the generic parser should skip it.
         pages_used.add(page_number)
 
         if len(malfunctions) == len(actions):
@@ -720,42 +711,34 @@ def extract_servo_malfunction_action_chunks(pages, manual):
             print(
                 f"  NOTE: page {page_number} malfunction/action counts "
                 f"don't match ({len(malfunctions)} vs {len(actions)}); "
-                f"keeping malfunctions and actions as separate focused "
-                f"chunks instead of one diluted combined chunk."
-            )
-            for malfunction in malfunctions:
-                malfunction_clean = fix_medical_terms(malfunction)
-                chunks.append(
-                    {
-                        "device_id": "servo_ventilator",
-                        "device": manual["device"],
-                        "manufacturer": manual["manufacturer"],
-                        "page": page_number,
-                        "section": "Troubleshooting",
-                        "chunk_type": "troubleshooting",
-                        "error_code": None,
-                        "symptom": malfunction_clean,
-                        "manual": Path(manual["file"]).name,
-                        "text": f"Malfunction: {malfunction_clean}",
-                    }
+                f"keeping this page's malfunctions and actions in one "
+                f"combined chunk instead of risking an incorrect "
+                f"malfunction-to-action link."
                 )
-            for action in actions:
-                action_clean = fix_medical_terms(action)
-                chunks.append(
-                    {
-                        "device_id": "servo_ventilator",
-                        "device": manual["device"],
-                        "manufacturer": manual["manufacturer"],
-                        "page": page_number,
-                        "section": "Troubleshooting",
-                        "chunk_type": "troubleshooting",
-                        "error_code": None,
-                        "action": action_clean,
-                        "manual": Path(manual["file"]).name,
-                        "text": f"Action: {action_clean}",
-                    }
-                )
-
+    combined_malfunctions = " ".join(
+        fix_medical_terms(m) for m in malfunctions
+    )
+    combined_actions = " ".join(
+        fix_medical_terms(a) for a in actions
+    )
+    chunks.append(
+        {
+            "device_id": "servo_ventilator",
+            "device": manual["device"],
+            "manufacturer": manual["manufacturer"],
+            "page": page_number,
+            "section": "Troubleshooting",
+            "chunk_type": "troubleshooting",
+            "error_code": None,
+            "symptom": combined_malfunctions,
+            "action": combined_actions,
+            "manual": Path(manual["file"]).name,
+            "text": (
+                f"Malfunction: {combined_malfunctions} "
+                f"Action: {combined_actions}"
+            ),
+        }
+    )
     return chunks, pages_used
 
 def extract_philips_troubleshooting_chunks(

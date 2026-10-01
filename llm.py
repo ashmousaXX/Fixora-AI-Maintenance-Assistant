@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from groq import Groq, RateLimitError
 from prompts import SYSTEM_PROMPT, build_user_prompt
 
-load_dotenv()
+load_dotenv(override=True)
 MODEL_NAME = "openai/gpt-oss-120b"
 MAX_COMPLETION_TOKENS = 2500
 

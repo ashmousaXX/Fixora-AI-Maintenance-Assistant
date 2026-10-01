@@ -1,13 +1,19 @@
 import json
+import os
 import re
 import chromadb
+from dotenv import load_dotenv
 
+from groq import Groq
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 from config import (
     PROCESSED_DIR,
     VECTOR_DB_DIR,
 )
+
+
+load_dotenv(override=True)
 
 EMBEDDING_MODEL_NAME = (
     "sentence-transformers/all-MiniLM-L6-v2"
@@ -19,6 +25,47 @@ BM25_TOP_K = 20
 embedding_model = SentenceTransformer(
     EMBEDDING_MODEL_NAME
 )
+
+HYDE_MODEL_NAME = "openai/gpt-oss-20b"
+_hyde_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# =========================================================
+# Query expansion (device-scoped)
+# =========================================================
+
+# Maps a generic symptom phrase to the manual's own terminology, so a
+# common way of describing a fault also matches the wording the manual
+# actually uses.
+SYNONYM_EXPANSIONS = {
+    "power supply": "power supply voltage supply internal supply voltage",
+}
+
+
+def expand_query(query, device_id=None):
+    """
+    Expand the query with manual-specific synonyms — but ONLY once the
+    target device is already known to be the Servo ventilator, where
+    "voltage supply" is the manual's actual wording for this symptom.
+
+    Applying this expansion unconditionally (regardless of device)
+    previously broke device detection for OTHER devices: SC6002XL's
+    troubleshooting tables repeat the word "voltage" constantly (e.g.
+    "measure voltage... 11.6 to 13.8 VDC"), so expanding a Philips
+    query with "voltage supply" pulled SC6002XL chunks ahead of the
+    correct Philips match during the device-detection probe, which
+    runs with device_id=None. Gating on device_id keeps expansion from
+    ever affecting device detection, since the probe always calls this
+    with device_id=None.
+    """
+    if device_id != "servo_ventilator":
+        return query
+
+    lowered = query.lower()
+    for key, expansion in SYNONYM_EXPANSIONS.items():
+        if key in lowered:
+            return f"{query} {expansion}"
+    return query
+
 
 # =========================================================
 # Get available devices
@@ -238,8 +285,11 @@ def semantic_search(
     collection = client.get_collection(
         name=COLLECTION_NAME
     )
+
+    search_query = expand_query(query, device_id=device_id)
+
     query_embedding = embedding_model.encode(
-        query,
+        search_query,
         normalize_embeddings=True,
     )
     search_arguments = {
@@ -262,8 +312,48 @@ def semantic_search(
     )
     return results
 
+# =========================================================
+# HyDE: Hypothetical Document Embeddings
+# =========================================================
+
+def generate_hypothetical_passage(query):
+    """
+    HyDE: rewrites the user's symptom description in manual-style
+    technical language before embedding it, so vague everyday phrasing
+    can still match precise manual terminology it doesn't share any
+    words with. General technique, not tuned to any one fault.
+
+    Falls back to the original query on any failure (rate limit,
+    network error, etc.) so a HyDE hiccup never breaks retrieval.
+    """
+    try:
+        response = _hyde_client.chat.completions.create(
+            model=HYDE_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Rewrite the user's symptom as a short technical "
+                        "phrase in the style of a medical-equipment service "
+                        "manual's troubleshooting table. One sentence. Do "
+                        "not answer or solve anything, only rephrase."
+                    ),
+                },
+                {"role": "user", "content": query},
+            ],
+            temperature=0.3,
+            max_tokens=60,
+        )
+        rewritten = response.choices[0].message.content.strip()
+        return rewritten if rewritten else query
+    except Exception as error:
+        print(f"  HyDE rewrite failed, using original query: {error}")
+        return query
+
+
 _bm25_cache = {}
 def _get_bm25_index(device_id):
+
     """Build (and cache) a BM25 index over every chunk of one device."""
 
     if device_id in _bm25_cache:
@@ -352,9 +442,15 @@ def hybrid_search(
     through BM25/RRF.
     """
 
+    hyde_query = generate_hypothetical_passage(query)
+
     # -----------------------------------------------------
     # 1. Semantic candidates
     # -----------------------------------------------------
+    # device_id is already resolved by the time hybrid_search runs
+    # (retrieve() only calls this after the device-detection probe),
+    # so expand_query's servo-only gate can safely apply here without
+    # affecting device detection.
 
     semantic_top_k = max(
         top_k * 3,
@@ -362,11 +458,10 @@ def hybrid_search(
     )
 
     semantic_results = semantic_search(
-        query=query,
+        query=hyde_query,
         device_id=device_id,
         top_k=semantic_top_k,
     )
-
     semantic_ids = list(
         semantic_results["ids"][0]
     )
@@ -479,7 +574,7 @@ def hybrid_search(
         if query_embedding is None:
             query_embedding = (
                 embedding_model.encode(
-                    query,
+                    hyde_query,
                     normalize_embeddings=True,
                 )
             )
@@ -526,13 +621,20 @@ def hybrid_search(
 
     RRF_K = 60
 
+        # Semantic gets more weight than BM25: these manuals reuse the same
+    # vocabulary constantly ("ventilator", "supply", "pressure"), so raw
+    # keyword overlap is a weak signal here and was pulling less-relevant
+    # chunks to rank 1 purely on word frequency.
+    SEMANTIC_WEIGHT = 1.5
+    BM25_WEIGHT = 1.0
+
     for candidate in filtered_candidates:
 
         rrf_score = 0.0
 
         if candidate.get("semantic_rank") is not None:
             rrf_score += (
-                1.0
+                SEMANTIC_WEIGHT
                 /
                 (
                     RRF_K
@@ -542,7 +644,7 @@ def hybrid_search(
 
         if candidate.get("bm25_rank") is not None:
             rrf_score += (
-                1.0
+                BM25_WEIGHT
                 /
                 (
                     RRF_K
@@ -554,7 +656,6 @@ def hybrid_search(
         # Every candidate must receive an RRF score
         # before sorting.
         candidate["rrf_score"] = rrf_score
-
     # -----------------------------------------------------
     # 5. Sort by fused ranking
     # -----------------------------------------------------
@@ -604,6 +705,11 @@ def hybrid_search(
             candidate["semantic_distance"]
         )
 
+    true_best_distance = min(
+        candidate["semantic_distance"]
+        for candidate in filtered_candidates
+    )
+
     return {
         "ids": [
             result_ids
@@ -617,6 +723,7 @@ def hybrid_search(
         "distances": [
             result_distances
         ],
+        "true_best_distance": true_best_distance,
     }
 
 
@@ -714,6 +821,9 @@ def retrieve(
             }
     search_device_id = device_id
     if search_device_id is None:
+        # device_id=None here means expand_query will NOT expand the
+        # probe query (it only expands once device_id == "servo_ventilator"),
+        # so device detection always runs on the query as written.
         probe_results = semantic_search(
             query=query,
             device_id=None,
@@ -756,7 +866,10 @@ def retrieve(
             "results":
                 semantic_results,
         }
-    best_distance = semantic_results["distances"][0][0]
+    best_distance = semantic_results.get(
+        "true_best_distance",
+        semantic_results["distances"][0][0],
+    )
     print(f"Best semantic distance: {best_distance:.4f}")
     print(f"Maximum allowed distance: {MAX_DISTANCE:.4f}")
 
