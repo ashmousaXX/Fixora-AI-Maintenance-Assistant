@@ -1,14 +1,3 @@
-"""
-Evaluation harness for Fixora's retrieval and answer-generation.
-
-Two phases:
-1. Retrieval evaluation — checks device detection and retrieval type
-   (semantic / exact_error / not_found) against expected values.
-2. Answer evaluation — runs the full RAG pipeline and checks that
-   generated answers are grounded in the retrieved evidence (no
-   hallucinated sources, no mismatched malfunction/action pairs).
-"""
-
 import re
 import time
 
@@ -17,11 +6,9 @@ from retrieval import retrieve
 # =========================================================
 # Config
 # =========================================================
+LLM_CALL_DELAY_SECONDS = 15
 
-# Seconds to wait between LLM calls in evaluate_answers(), to stay
-# under Groq's tokens-per-minute limit when running all test cases
-# back-to-back.
-LLM_CALL_DELAY_SECONDS = 6
+LLM_FAILURE_PREFIX = "The assistant did not return a response"
 
 STOPWORDS = {
     "the", "a", "an", "is", "are", "was", "were", "to", "of", "in",
@@ -388,10 +375,6 @@ def _validate_multi_fault_answer(fault_bullets, action_bullets, sources):
 # Grounding validation
 # =========================================================
 
-# A model that explicitly declares no match found has nothing to
-# hallucinate — grounding-checking a refusal statement against the
-# evidence will always spuriously fail, since the sentence describes
-# what's ABSENT from the evidence, not what's present in it.
 NO_MATCH_PHRASES = [
     "no malfunction in the provided manual evidence",
     "no malfunction in the provided evidence",
@@ -402,8 +385,28 @@ NO_MATCH_PHRASES = [
     "no evidence directly matches",
     "nothing in the evidence directly matches",
     "does not match closely enough",
+    "does not contain a single malfunction",
+    "does not contain a malfunction",
+    "too general",
 ]
 
+NO_MATCH_REGEXES = [
+    # "no specific troubleshooting entry", "no single malfunction", "no match" ...
+    r"\bno (specific |single |direct |matching )?(\w+ )?(malfunction|fault|entry|entries|match)",
+    r"\b(does|do) not (directly )?(contain|describe|match|specify|provide)",
+    # "corrective action is not provided", "is not documented" ...
+    r"\b(is|are) not (provided|described|documented|listed|specified)",
+    r"\b(too|is) (general|broad|vague)",
+    r"\bnot (sufficiently|closely) ",
+]
+
+
+def declares_no_match(text):
+    t = compact(text)
+    return (
+        any(p in t for p in NO_MATCH_PHRASES)
+        or any(re.search(p, t) for p in NO_MATCH_REGEXES)
+    )
 
 def validate_matching_fault_action(query, answer, context):
     """
@@ -420,7 +423,7 @@ def validate_matching_fault_action(query, answer, context):
     problems = []
 
     # ---- Explicit "no match found" refusal: nothing to ground. ----
-    if any(p in compact(matching_fault) for p in NO_MATCH_PHRASES):
+    if declares_no_match(matching_fault):
         return {"ok": True, "problems": [], "matching_fault_source": None}
 
     # ---- Multi-fault answer (Rule 6c): validate bullet by bullet. ----
@@ -497,10 +500,6 @@ def validate_matching_fault_action(query, answer, context):
 
                 pairs = extract_malfunction_action_pairs(source_text)
 
-                # Fallback: this SOURCE has no "Malfunction:" text at all
-                # (an action-only or unstructured chunk). Validate the
-                # action directly against this source's own text instead
-                # of requiring a structured Malfunction/Action pair.
                 if not pairs:
                     if action_supported_by_source(manual_action, source_text):
                         action_supported = True
@@ -583,7 +582,7 @@ def evaluate_retrieval():
 
     print()
     print("=" * 80)
-    print("FIXORA RETRIEVAL EVALUATION")
+    print("Medix RETRIEVAL EVALUATION")
     print("=" * 80)
 
     for index, case in enumerate(TEST_CASES, start=1):
@@ -651,23 +650,26 @@ def evaluate_answers():
     grounding_correct = 0
     source_correct = 0
     action_grounding_correct = 0
+    skipped = 0
 
     for index, case in enumerate(TEST_CASES, start=1):
         print(f"\n[{index}/{len(TEST_CASES)}] {case['name']}")
 
-        result = retrieve(query=case["query"], top_k=5)
-
-        # ---- Negative-test / not-found short-circuit ----
-        if result.get("retrieval_type") == "not_found":
-            print("Retrieval returned NOT_FOUND.")
-            if case["expected_type"] == "not_found":
+        # ---- Negative-test short-circuit ----
+        # Only negative tests call retrieve() here. For every other
+        # case answer_query() already runs retrieval itself, and doing
+        # it twice doubled the HyDE calls and triggered rate limits.
+        if case["expected_type"] == "not_found":
+            result = retrieve(query=case["query"], top_k=5)
+            if result.get("retrieval_type") == "not_found":
+                print("Retrieval returned NOT_FOUND.")
                 print("Negative test: PASS")
                 answer_correct += 1
                 answer_total += 1
                 grounding_correct += 1
                 source_correct += 1
                 action_grounding_correct += 1
-            continue
+                continue
 
         # Import RAG only when an actual answer needs to be generated.
         from rag import answer_query
@@ -675,14 +677,33 @@ def evaluate_answers():
         rag_result = answer_query(query=case["query"], top_k=8)
 
         # Give Groq's tokens-per-minute limit a chance to reset before
-        # the next LLM call — running all test cases back-to-back
-        # otherwise triggers rate limiting from the second call on.
+        # the next LLM call.
         time.sleep(LLM_CALL_DELAY_SECONDS)
 
         context = rag_result.get("context", "")
         answer = rag_result.get("answer", "")
 
+        # An LLM/API failure is not an answer-quality failure:
+        # skip it instead of counting it against the accuracy numbers.
+        if answer.startswith(LLM_FAILURE_PREFIX):
+            print("LLM call failed (rate limit / empty response) — SKIPPED, not counted.")
+            skipped += 1
+            continue
+
         print("\nContext sent to LLM:")
+        print("\nContext sent to LLM:")
+
+        # Full un-truncated list of every SOURCE's page/section, so
+        # nothing is hidden by the character-limited preview below.
+        import re as _re
+        headers = _re.findall(
+            r"SOURCE (\d+)\nDevice: (.*?)\nPage: (.*?)\nSection: (.*?)\n",
+            context,
+        )
+        print("All retrieved sources (page/section):")
+        for source_num, device, page, section in headers:
+            print(f"  SOURCE {source_num}: Page {page}, Section: {section}")
+
         print(context[:5000])
         print("-" * 80)
 
@@ -730,6 +751,8 @@ def evaluate_answers():
     print("ANSWER SUMMARY")
     print("=" * 80)
     print(f"Evaluated answers: {answer_total}")
+    if skipped:
+        print(f"Skipped (LLM call failed): {skipped}")
 
     if answer_total:
         print(f"Answer fact-match accuracy: {answer_correct / answer_total * 100:.1f}%")

@@ -12,6 +12,12 @@ from rag import answer_query
 from llm import generate_answer
 from preprocessing import extract_pdf_text, clean_text
 
+import asyncio
+import edge_tts
+import hashlib
+
+EDGE_VOICE = "en-US-AndrewNeural"   
+
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +34,10 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 
 app = Flask(__name__)
 
+
+# =========================================================
+# WAV header fix (streamed TTS output)
+# =========================================================
 
 def fix_wav_header(path):
     """
@@ -61,15 +71,27 @@ def fix_wav_header(path):
             f.seek(chunk_size, os.SEEK_CUR)
 
 
+# =========================================================
+# Static routes
+# =========================================================
+
 @app.route("/")
 def index():
-    return send_from_directory(BASE_DIR, "fixora-ui.html")
+    return send_from_directory(BASE_DIR, "Medix-ui.html")
 
 
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok"})
 
+
+# =========================================================
+# Main Q&A (manuals already indexed in the vector DB)
+# =========================================================
+CLOSING_RE = re.compile(
+    r"^\s*(ok(ay)?[,. ]*)?(thanks|thank you|thanks a lot|thank you so much|that'?s all|bye|goodbye)[\s.!,]*$",
+    re.I,
+)
 
 @app.route("/api/ask", methods=["POST"])
 def ask():
@@ -81,7 +103,14 @@ def ask():
 
     if len(query) > 1000:
         return jsonify({"error": "Query is too long."}), 400
-
+    if CLOSING_RE.match(query):
+        msg = "You're welcome! Good luck with the repair."
+        return jsonify({
+            "answer": msg,
+            "speech_answer": msg,
+            "device": None,
+            "retrieval_type": "closing",
+        })
     try:
         t0 = time.time()
         result = answer_query(
@@ -105,6 +134,22 @@ def ask():
     )
 
 
+# =========================================================
+# Text-to-speech
+# =========================================================
+
+EDGE_VOICE = "en-US-GuyNeural"
+
+async def _edge_save(text, path):
+    await edge_tts.Communicate(
+        text, EDGE_VOICE, rate="+8%", pitch="+0Hz"
+    ).save(path)
+
+
+CACHE_DIR = os.path.join(BASE_DIR, "tts_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+
 @app.route("/api/speech", methods=["POST"])
 def speech():
     data = request.get_json(silent=True) or {}
@@ -113,36 +158,31 @@ def speech():
     if not text:
         return jsonify({"error": "text is required"}), 400
 
-    output_path = os.path.join(
-        RECORDINGS_DIR,
-        f"reply_{uuid.uuid4().hex}.wav",
-    )
+    key = hashlib.md5(f"{EDGE_VOICE}:{text}".encode()).hexdigest()
+    final_path = os.path.join(CACHE_DIR, key + ".mp3")
 
-    try:
-        t0 = time.time()
-        response = groq_client.audio.speech.create(
-            model=TTS_MODEL,
-            voice=TTS_VOICE,
-            input=text,
-            response_format="wav",
-        )
-        response.write_to_file(output_path)
-        fix_wav_header(output_path)
-        print(f"[timing] /api/speech (TTS, {len(text)} chars) took {time.time() - t0:.2f}s")
-    except Exception as error:
-        print(f"[ERROR] /api/speech failed: {error}")
-        return jsonify({"error": "Text-to-speech generation failed. Please try again."}), 502
-
-    @after_this_request
-    def cleanup(response_obj):
+    if not os.path.exists(final_path):
+        tmp_path = final_path + f".{uuid.uuid4().hex}.tmp"
         try:
-            os.remove(output_path)
-        except OSError:
-            pass
-        return response_obj
+            t0 = time.time()
+            asyncio.run(_edge_save(text, tmp_path))
+            os.replace(tmp_path, final_path)
+            print(f"[timing] /api/speech (edge-tts, {len(text)} chars) took {time.time() - t0:.2f}s")
+        except Exception as error:
+            print(f"[ERROR] /api/speech failed: {error}")
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+            return jsonify({"error": "Text-to-speech generation failed. Please try again."}), 502
+    else:
+        print("[timing] /api/speech served from cache")
 
-    return send_file(output_path, mimetype="audio/wav")
+    return send_file(final_path, mimetype="audio/mpeg")
 
+# =========================================================
+# Speech-to-text
+# =========================================================
 
 @app.route("/api/transcribe", methods=["POST"])
 def transcribe():
@@ -162,7 +202,7 @@ def transcribe():
             temperature=0,
         )
         text = (transcription.text or "").strip()
-        text = re.sub(r"\s*(thank you|thanks for watching)[.!]?\s*$", "", text, flags=re.I).strip()
+        text = re.sub(r"\s*thanks for watching[.!]?\s*$", "", text, flags=re.I).strip()
         print(f"[timing] /api/transcribe (Groq STT) took {time.time() - t0:.2f}s")
         print(f"[transcript] {text}")
     except Exception as error:
@@ -171,13 +211,42 @@ def transcribe():
 
     return jsonify({"text": text})
 
+
+# =========================================================
+# Ask-about-an-uploaded-file
+# =========================================================
+
 MAX_FILE_CONTEXT_CHARS = 12000
 MAX_FILE_PAGES = 8
+
+STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "to", "of", "in",
+    "on", "for", "and", "or", "with", "if", "has", "have", "this",
+    "that", "from", "by", "as", "be", "it", "may", "can", "what",
+    "should", "do", "i", "my", "me",
+}
+
+FAULT_SECTION_MARKERS = (
+    "troubleshooting", "malfunction", "symptom or condition",
+    "possible cause", "fault", "error code",
+)
 
 
 def _score_page(page_text, query_words):
     page_lower = page_text.lower()
-    return sum(1 for w in query_words if w in page_lower)
+
+    meaningful_words = query_words - STOPWORDS
+    if not meaningful_words:
+        meaningful_words = query_words  # fall back rather than score nothing
+
+    # Frequency-weighted, not just presence/absence -- a word repeated
+    # throughout a page is a stronger signal than appearing once.
+    score = sum(page_lower.count(w) for w in meaningful_words)
+
+    if any(marker in page_lower for marker in FAULT_SECTION_MARKERS):
+        score += 20  # outweighs normal keyword counts on descriptive pages
+
+    return score
 
 
 def _extract_text_from_upload(file_storage):
@@ -234,15 +303,16 @@ def _build_context_from_pages(pages, query, device_label):
     query_words = set(re.findall(r"[a-z0-9]+", query.lower()))
 
     scored = [
-        (page.get("page", i + 1), page.get("text", ""))
+        (page.get("page", i + 1), page.get("text", ""), _score_page(page.get("text", ""), query_words))
         for i, page in enumerate(pages)
         if page.get("text", "").strip()
     ]
-    scored.sort(key=lambda item: _score_page(item[1], query_words), reverse=True)
+    scored = [item for item in scored if item[2] > 0]
+    scored.sort(key=lambda item: item[2], reverse=True)
 
     selected = []
     total_chars = 0
-    for page_number, text in scored:
+    for page_number, text, _score in scored:
         if len(selected) >= MAX_FILE_PAGES or total_chars >= MAX_FILE_CONTEXT_CHARS:
             break
         selected.append((page_number, text))

@@ -35,25 +35,13 @@
   .font-tech{ font-family:var(--font-mono); }
 
   /* ---------------- Orb: no soft shadow, a thin rotating "scan" ring instead ---------------- */
-  .glow-orb{
-    position:relative;
-    width:120px;height:120px;border-radius:9999px;margin:0 auto;
-    background:radial-gradient(circle at 35% 30%, #d8c8ff, #8b5cf6 60%, #6d28d9 100%);
-    transition:transform .3s ease;
-  }
-  .glow-orb::before{
-    content:'';
-    position:absolute;
-    inset:-14px;
-    border-radius:9999px;
-    padding:2px;
-    background:conic-gradient(from 0deg, transparent 0%, var(--purple) 12%, transparent 26%, transparent 74%, var(--purple) 88%, transparent 100%);
-    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;
-    mask-composite:exclude;
-    animation: orb-ring-spin 3s linear infinite;
-  }
-  @keyframes orb-ring-spin{ to { transform: rotate(360deg); } }
+/* ---------------- Orb canvas ---------------- */
+.glow-orb{
+  display:block; margin:0 auto;
+  width:170px; height:170px;
+  transition:transform .3s ease;
+}
+#voiceOrb{ width:min(300px,70vw); height:min(300px,70vw); }
 
   /* ---------------- Faint tech dot-grid behind the chat ---------------- */
   #content{
@@ -217,7 +205,7 @@
 
       <!-- Hero / welcome state -->
       <div id="hero" class="w-full flex flex-col items-center">
-        <div class="glow-orb mb-5"></div>
+        <canvas id="heroOrbCanvas" class="glow-orb mb-5"></canvas>
         <p class="text-2xl font-medium mb-1" style="color:var(--purple)">Hello</p>
         <p class="text-2xl font-semibold mb-2 text-center px-2">How can I help with your equipment today?</p>
         <p id="heroSubtitle" class="text-sm mb-6 text-center px-2 font-tech" style="color:var(--muted); min-height:1.25em;"></p>
@@ -308,20 +296,263 @@
 <input type="file" id="fileInput" class="hidden" accept=".pdf,.txt,.docx">
 
 <!-- ===================== Voice-mode overlay ===================== -->
-<div id="voiceOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center px-6 text-center"
-     style="background:rgba(0,0,0,.55); backdrop-filter:blur(6px)">
-  <div id="voiceOrb" class="glow-orb" onclick="finishRecording()" style="cursor:pointer"></div>
-  <p id="voiceStatus" class="mt-6 text-lg font-medium" style="color:var(--purple)">Listening...</p>
-  <div id="voiceCaption" class="assistant-text mt-4 max-w-lg max-h-48 overflow-y-auto text-sm" style="color:var(--text)"></div>
+  <div id="voiceOverlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center px-6 text-center"
+  style="background:rgba(0,0,0,.94); backdrop-filter:blur(8px)">
+  <canvas id="voiceOrb" class="glow-orb" onclick="finishRecording()" style="cursor:pointer"></canvas>
+  <p id="voiceStatus" class="mt-8 text-lg font-medium" style="color:#e8eeee">Listening...</p>
+  <div id="voiceCaption" class="assistant-text mt-4 max-w-lg max-h-48 overflow-y-auto text-sm" style="color:#d6dcdc"></div>
   <div class="mt-8 flex gap-3">
-    <button onclick="finishRecording()" class="px-5 py-2 rounded-full text-sm font-medium"
+    <button onclick="cancelVoiceMode()" class="px-5 py-2 rounded-full text-sm font-medium"
             style="background:var(--purple); color:#fff">Done</button>
-    <button onclick="cancelVoiceMode()" class="px-4 py-2 rounded-full border text-sm row-hover"
-            style="border-color:var(--border); color:var(--text)">Cancel</button>
   </div>
 </div>
 
 <script>
+  // ============================================================
+// Wavy 3D dot-orb (Simplex noise displaced sphere, canvas 2D)
+// ============================================================
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+class SimplexNoise3D {
+  constructor(seed) {
+    const random = mulberry32(seed || 1337);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const n = Math.floor((i + 1) * random());
+      const q = p[i]; p[i] = p[n]; p[n] = q;
+    }
+    this.perm = new Uint8Array(512);
+    this.permMod12 = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) {
+      this.perm[i] = p[i & 255];
+      this.permMod12[i] = this.perm[i] % 12;
+    }
+  }
+
+  noise3D(x, y, z) {
+    const grad3 = SimplexNoise3D.GRAD3;
+    const F3 = 1 / 3, G3 = 1 / 6;
+    const s = (x + y + z) * F3;
+    const i = Math.floor(x + s), j = Math.floor(y + s), k = Math.floor(z + s);
+    const t = (i + j + k) * G3;
+    const X0 = i - t, Y0 = j - t, Z0 = k - t;
+    const x0 = x - X0, y0 = y - Y0, z0 = z - Z0;
+
+    let i1, j1, k1, i2, j2, k2;
+    if (x0 >= y0) {
+      if (y0 >= z0) { i1=1;j1=0;k1=0; i2=1;j2=1;k2=0; }
+      else if (x0 >= z0) { i1=1;j1=0;k1=0; i2=1;j2=0;k2=1; }
+      else { i1=0;j1=0;k1=1; i2=1;j2=0;k2=1; }
+    } else {
+      if (y0 < z0) { i1=0;j1=0;k1=1; i2=0;j2=1;k2=1; }
+      else if (x0 < z0) { i1=0;j1=1;k1=0; i2=0;j2=1;k2=1; }
+      else { i1=0;j1=1;k1=0; i2=1;j2=1;k2=0; }
+    }
+
+    const x1 = x0 - i1 + G3, y1 = y0 - j1 + G3, z1 = z0 - k1 + G3;
+    const x2 = x0 - i2 + 2*G3, y2 = y0 - j2 + 2*G3, z2 = z0 - k2 + 2*G3;
+    const x3 = x0 - 1 + 3*G3, y3 = y0 - 1 + 3*G3, z3 = z0 - 1 + 3*G3;
+
+    const ii = i & 255, jj = j & 255, kk = k & 255;
+    const gi0 = this.permMod12[ii + this.perm[jj + this.perm[kk]]];
+    const gi1 = this.permMod12[ii + i1 + this.perm[jj + j1 + this.perm[kk + k1]]];
+    const gi2 = this.permMod12[ii + i2 + this.perm[jj + j2 + this.perm[kk + k2]]];
+    const gi3 = this.permMod12[ii + 1 + this.perm[jj + 1 + this.perm[kk + 1]]];
+
+    let n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+    let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+    if (t0 >= 0) { t0 *= t0; n0 = t0 * t0 * (grad3[gi0][0]*x0 + grad3[gi0][1]*y0 + grad3[gi0][2]*z0); }
+    let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+    if (t1 >= 0) { t1 *= t1; n1 = t1 * t1 * (grad3[gi1][0]*x1 + grad3[gi1][1]*y1 + grad3[gi1][2]*z1); }
+    let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+    if (t2 >= 0) { t2 *= t2; n2 = t2 * t2 * (grad3[gi2][0]*x2 + grad3[gi2][1]*y2 + grad3[gi2][2]*z2); }
+    let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+    if (t3 >= 0) { t3 *= t3; n3 = t3 * t3 * (grad3[gi3][0]*x3 + grad3[gi3][1]*y3 + grad3[gi3][2]*z3); }
+
+    return 32 * (n0 + n1 + n2 + n3);
+  }
+}
+SimplexNoise3D.GRAD3 = [
+  [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
+  [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
+  [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]
+];
+
+class WavyOrb {
+  constructor(canvas, options = {}) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.noise = new SimplexNoise3D(options.seed || Math.floor(Math.random() * 10000));
+    this.alwaysLight = !!options.alwaysLight; // true = نقط فاتحة دايمًا (للأوفرلاي الغامق)
+    this._build(options.rings || 64, options.perRing || 150);
+
+    this.LEVELS = 12;
+    this.buckets = Array.from({ length: this.LEVELS }, () => []);
+
+    this.rotY = 0; this.rotX = 0.3; this.time = 0;
+    this.amplitude = 0.28; this.targetAmplitude = 0.28;
+    this.speed = 0.15;     this.targetSpeed = 0.15;
+    this.rotateSpeed = 0.12; this.targetRotateSpeed = 0.12;
+
+    const l = { x: -0.5, y: -0.6, z: 0.9 };
+    const ll = Math.hypot(l.x, l.y, l.z);
+    this.light = { x: l.x / ll, y: l.y / ll, z: l.z / ll };
+
+    this.cssW = 0; this.cssH = 0; this.w = 0; this.h = 0;
+    this._loop = this._loop.bind(this);
+    requestAnimationFrame(this._loop);
+  }
+
+  // حلقات خطوط العرض (latitude rings) = شكل الشبكة الدقيقة
+  _build(rings, perRing) {
+    const xs = [], ys = [], zs = [];
+    for (let i = 0; i < rings; i++) {
+      const lat = ((i + 0.5) / rings) * Math.PI;
+      const y = Math.cos(lat), r = Math.sin(lat);
+      const n = Math.max(10, Math.round(perRing * r));
+      const offset = (i % 2) * 0.5;
+      for (let j = 0; j < n; j++) {
+        const th = ((j + offset) / n) * Math.PI * 2;
+        xs.push(Math.cos(th) * r); ys.push(y); zs.push(Math.sin(th) * r);
+      }
+    }
+    this.bx = Float32Array.from(xs);
+    this.by = Float32Array.from(ys);
+    this.bz = Float32Array.from(zs);
+    this.count = xs.length;
+  }
+
+  // يتعمله resize لو الحجم اتغير (مهم لما الأوفرلاي يظهر بعد ما كان مخفي)
+  _syncSize() {
+    const cw = this.canvas.clientWidth, ch = this.canvas.clientHeight;
+    if (!cw || !ch) return false;
+    if (cw !== this.cssW || ch !== this.cssH) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      this.canvas.width = cw * dpr;
+      this.canvas.height = ch * dpr;
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.cssW = cw; this.cssH = ch; this.w = cw; this.h = ch;
+    }
+    return true;
+  }
+
+  setIntensity(state) {
+    const presets = {
+      idle:      { amp: 0.28, speed: 0.15, rotate: 0.12 },
+      listening: { amp: 0.45, speed: 0.55, rotate: 0.25 },
+      thinking:  { amp: 0.36, speed: 0.35, rotate: 0.50 },
+      speaking:  { amp: 0.60, speed: 0.90, rotate: 0.32 },
+    };
+    const p = presets[state] || presets.idle;
+    this.targetAmplitude = p.amp;
+    this.targetSpeed = p.speed;
+    this.targetRotateSpeed = p.rotate;
+  }
+
+  _loop(ts) {
+    if (!this._lastTs) this._lastTs = ts;
+    const dt = Math.min((ts - this._lastTs) / 1000, 0.05);
+    this._lastTs = ts;
+
+    this.amplitude   += (this.targetAmplitude   - this.amplitude)   * 0.05;
+    this.speed       += (this.targetSpeed       - this.speed)       * 0.05;
+    this.rotateSpeed += (this.targetRotateSpeed - this.rotateSpeed) * 0.05;
+
+    this.time += dt * this.speed;
+    this.rotY += dt * this.rotateSpeed;
+    this.rotX = 0.3 + Math.sin(this.time * 0.35) * 0.1;
+
+    if (this._syncSize()) this._draw();
+    requestAnimationFrame(this._loop);
+  }
+
+  _draw() {
+    const ctx = this.ctx, w = this.w, h = this.h, L = this.LEVELS;
+    ctx.clearRect(0, 0, w, h);
+
+    const isDark = this.alwaysLight ||
+      document.documentElement.getAttribute('data-theme') === 'dark';
+    ctx.globalCompositeOperation = isDark ? 'lighter' : 'source-over';
+
+    const cx = w / 2, cy = h / 2;
+    const baseRadius = Math.min(w, h) * 0.32;
+    const sinY = Math.sin(this.rotY), cosY = Math.cos(this.rotY);
+    const sinX = Math.sin(this.rotX), cosX = Math.cos(this.rotX);
+    const t = this.time, amp = this.amplitude, light = this.light;
+    const dotBase = Math.max(0.8, w / 190);
+
+    for (const b of this.buckets) b.length = 0;
+
+    for (let i = 0; i < this.count; i++) {
+      const x = this.bx[i], y = this.by[i], z = this.bz[i];
+
+      // ازاحة noise على مستويين = شكل blob متموج
+      const n1 = this.noise.noise3D(x * 1.2 + t, y * 1.2, z * 1.2 + t * 0.6);
+      const n2 = this.noise.noise3D(x * 2.4 - t * 0.8, y * 2.4 + t * 0.5, z * 2.4);
+      const n = n1 * 0.75 + n2 * 0.35;
+      const r = 1 + n * amp;
+
+      // دوران الاتجاه الأساسي
+      const ux = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+      const uy = y * cosX - z1 * sinX;
+      const uz = y * sinX + z1 * cosX;
+
+      const perspective = 2.8 / (2.8 - uz * r);
+      const sx = cx + ux * r * baseRadius * perspective;
+      const sy = cy + uy * r * baseRadius * perspective;
+
+      // إضاءة: lambert + حواف لامعة + قمم الموجات أفتح
+      const lambert = Math.max(0, ux * light.x + uy * light.y + uz * light.z);
+      const rim = Math.pow(1 - Math.abs(uz), 2);
+      let br = 0.18 + 0.55 * lambert + 0.35 * rim + 0.3 * (n * 0.5 + 0.5);
+      if (uz < 0) br *= 0.45; // الجزء الخلفي أخفت (شفاف)
+      br = Math.min(1, Math.max(0, br));
+
+      const lv = Math.min(L - 1, Math.floor(br * L));
+      const s = dotBase * perspective;
+      const bucket = this.buckets[lv];
+      bucket.push(sx - s / 2, sy - s / 2, s);
+    }
+
+    for (let lv = 0; lv < L; lv++) {
+      const bucket = this.buckets[lv];
+      if (!bucket.length) continue;
+      const k = lv / (L - 1);
+      if (isDark) {
+        const c = 120 + 135 * k; // فضي مايل لتركواز خفيف
+        ctx.fillStyle = `rgba(${(c - 12) | 0},${(c + 4) | 0},${(c + 2) | 0},${(0.1 + 0.9 * k).toFixed(2)})`;
+      } else {
+        ctx.fillStyle = `rgba(30,32,48,${(0.08 + 0.8 * k).toFixed(2)})`;
+      }
+      for (let j = 0; j < bucket.length; j += 3) {
+        ctx.fillRect(bucket[j], bucket[j + 1], bucket[j + 2], bucket[j + 2]);
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+let heroOrb = null;
+let voiceOrbRenderer = null;
+
+function initOrbs() {
+  const heroCanvas = document.getElementById('heroOrbCanvas');
+  if (heroCanvas) heroOrb = new WavyOrb(heroCanvas, { rings: 56, perRing: 130 });
+
+  const voiceCanvas = document.getElementById('voiceOrb');
+  if (voiceCanvas) voiceOrbRenderer = new WavyOrb(voiceCanvas, { rings: 76, perRing: 180, alwaysLight: true });
+}
   const hero = document.getElementById('hero');
   const chatView = document.getElementById('chatView');
   const content = document.getElementById('content');
@@ -689,6 +920,9 @@
           return;
         }
         appendAssistantMessage(data, { includeAudio: false });
+        if (data.retrieval_type === 'closing') {
+          setTimeout(resetChat, 3000);
+        }
       })
       .catch(() => {
         const el = document.getElementById(thinkingId);
@@ -698,8 +932,7 @@
         appendErrorBubble("Couldn't reach the Medix server. Make sure server.py is running.");
       });
   }
-
-  function playSpeech(text, containerId, btn) {
+    function playSpeech(text, containerId, btn) {
     if (!text) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Loading audio...'; }
 
@@ -708,7 +941,18 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     })
-      .then((res) => { if (!res.ok) throw new Error('speech request failed'); return res.blob(); })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().catch(() => ({})).then((data) => {
+            throw new Error(
+              data.code === 'tts_rate_limit'
+                ? 'Voice limit reached for today'
+                : (data.error || 'Voice playback failed')
+            );
+          });
+        }
+        return res.blob();
+      })
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         const container = document.getElementById(containerId);
@@ -719,8 +963,12 @@
         }
         if (btn) btn.remove();
       })
-      .catch(() => {
-        if (btn) { btn.disabled = false; btn.textContent = '🔊 Listen'; }
+      .catch((err) => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = err.message || '🔊 Listen';
+          btn.style.color = '#ef4444';
+        }
       });
   }
 
@@ -755,40 +1003,79 @@
       let heardSpeech = false, lastVoiceAt = startedAt;
 
       const tick = () => {
+        if (!analyser) return;
+
         analyser.getByteTimeDomainData(buf);
         let sum = 0;
-        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+
         const rms = Math.sqrt(sum / buf.length);
         voiceOrb.style.transform = `scale(${(1 + Math.min(rms * 6, 0.5)).toFixed(3)})`;
 
         const now = performance.now();
-        if (rms > SPEECH_LEVEL) { heardSpeech = true; lastVoiceAt = now; }
-        if (isRecording) {
-          if (heardSpeech && now - lastVoiceAt > SILENCE_MS) { finishRecording(); return; }
-          if (now - startedAt > MAX_RECORD_MS) { finishRecording(); return; }
+
+        if (rms > SPEECH_LEVEL) {
+          heardSpeech = true;
+          lastVoiceAt = now;
         }
+
+        if (isRecording) {
+          if (heardSpeech && now - lastVoiceAt > SILENCE_MS) {
+            finishRecording();
+            return;
+          }
+
+          if (now - startedAt > MAX_RECORD_MS) {
+            finishRecording();
+            return;
+          }
+        }
+
         visualizerFrameId = requestAnimationFrame(tick);
       };
+
       tick();
-    } catch (e) { /* Web Audio unsupported */ }
+    } catch (e) {
+      /* Web Audio unsupported */
+    }
   }
 
   function stopAudioVisualizer() {
     if (visualizerFrameId) cancelAnimationFrame(visualizerFrameId);
     visualizerFrameId = null;
-    if (audioContext) { try { audioContext.close(); } catch (e) {} audioContext = null; }
+
+    if (audioContext) {
+      try { audioContext.close(); } catch (e) {}
+      audioContext = null;
+    }
+
     analyser = null;
     voiceOrb.style.transform = '';
   }
 
   function setVoiceState(state, label) {
     voiceOrb.classList.remove('orb-thinking', 'orb-speaking');
-    if (state === 'listening') voiceStatus.textContent = label || 'Listening...';
-    else if (state === 'thinking') { voiceOrb.style.transform = ''; voiceOrb.classList.add('orb-thinking'); voiceStatus.textContent = label || 'Thinking...'; }
-    else if (state === 'speaking') { voiceOrb.classList.add('orb-speaking'); voiceStatus.textContent = label || 'Speaking...'; }
+    if (voiceOrbRenderer) voiceOrbRenderer.setIntensity(state);
+
+    if (state === 'listening') {
+      voiceStatus.textContent = label || 'Listening...';
+    } else if (state === 'thinking') {
+      voiceOrb.style.transform = '';
+      voiceOrb.classList.add('orb-thinking');
+      voiceStatus.textContent = label || 'Thinking...';
+    } else if (state === 'speaking') {
+      voiceOrb.classList.add('orb-speaking');
+      voiceStatus.textContent = label || 'Speaking...';
+    }
   }
 
-  function openVoiceOverlay() { voiceOverlay.classList.remove('hidden'); voiceOverlay.classList.add('flex'); }
+  function openVoiceOverlay() {
+    voiceOverlay.classList.remove('hidden');
+    voiceOverlay.classList.add('flex');
+  }
 
   function resetVoiceUi() {
     voiceOverlay.classList.add('hidden');
@@ -796,127 +1083,272 @@
     stopAudioVisualizer();
     voiceOrb.classList.remove('orb-thinking', 'orb-speaking');
     micBtn.disabled = false;
-    sendBtn.disabled = false; // re-enable typed input once voice mode ends
+    sendBtn.disabled = false;
     micBtn.style.background = 'var(--purple)';
     micBtn.classList.remove('scale-110');
   }
-
   function cancelVoiceMode() {
     voiceCancelled = true;
-    if (voiceAbort) { voiceAbort.abort(); voiceAbort = null; }
-    if (currentVoiceAudio) { try { currentVoiceAudio.pause(); } catch (e) {} currentVoiceAudio = null; }
-    if (isRecording && mediaRecorder) { isRecording = false; try { mediaRecorder.stop(); } catch (e) {} }
-    if (voiceStream) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; }
+
+    if (voiceAbort) {
+      try { voiceAbort.abort(); } catch (e) {}
+      voiceAbort = null;
+    }
+
+    if (currentVoiceAudio) {
+      try { currentVoiceAudio.pause(); } catch (e) {}
+      currentVoiceAudio = null;
+    }
+
+    if (isRecording && mediaRecorder) {
+      isRecording = false;
+      try { mediaRecorder.stop(); } catch (e) {}
+    }
+
+    if (voiceStream) {
+      voiceStream.getTracks().forEach((t) => t.stop());
+      voiceStream = null;
+    }
+
     resetVoiceUi();
   }
+
   const stopVoiceMode = cancelVoiceMode;
 
-  function finishRecording() {
-    if (!isRecording || !mediaRecorder) return;
-    isRecording = false;
-    stopAudioVisualizer();
-    micBtn.disabled = true;
-    setVoiceState('thinking', 'Transcribing...');
-    mediaRecorder.stop();
-  }
+  async function startVoiceRecording() {
+    if (voiceCancelled) return;
 
-  async function toggleMic() {
-    if (micBtn.disabled) return;
-    if (isRecording) { finishRecording(); return; }
-
-    voiceCancelled = false;
-    voiceCaption.innerHTML = '';
-    sendBtn.disabled = true; // prevent a typed send mid voice-session
-    openVoiceOverlay();
     setVoiceState('listening', 'Requesting microphone...');
 
     try {
       voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
-      resetVoiceUi();
-      alert('Microphone access was denied or is unavailable in this browser.');
+      if (!voiceCancelled) {
+        voiceCaption.innerHTML =
+          '<span class="text-red-400">Microphone access was denied or is unavailable.</span>';
+
+        setTimeout(() => {
+          if (!voiceCancelled) startVoiceRecording();
+        }, 1200);
+      }
       return;
     }
-    if (voiceCancelled) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; return; }
+
+    if (voiceCancelled) {
+      voiceStream.getTracks().forEach((t) => t.stop());
+      voiceStream = null;
+      return;
+    }
 
     audioChunks = [];
     const mimeType = getSupportedMimeType();
+
     try {
-      mediaRecorder = mimeType ? new MediaRecorder(voiceStream, { mimeType }) : new MediaRecorder(voiceStream);
+      mediaRecorder = mimeType
+        ? new MediaRecorder(voiceStream, { mimeType })
+        : new MediaRecorder(voiceStream);
     } catch (err) {
-      resetVoiceUi();
-      alert('Voice recording is not supported in this browser.');
+      if (voiceStream) {
+        voiceStream.getTracks().forEach((t) => t.stop());
+        voiceStream = null;
+      }
+
+      voiceCaption.innerHTML =
+        '<span class="text-red-400">Voice recording is not supported in this browser.</span>';
+
+      setTimeout(() => {
+        if (!voiceCancelled) startVoiceRecording();
+      }, 1500);
+
       return;
     }
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-      if (voiceStream) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; }
-      if (voiceCancelled) return;
-      sendVoiceMessage(new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' }));
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size) audioChunks.push(e.data);
     };
+
+    mediaRecorder.onstop = () => {
+      if (voiceStream) {
+        voiceStream.getTracks().forEach((t) => t.stop());
+        voiceStream = null;
+      }
+
+      if (voiceCancelled) return;
+
+      const blob = new Blob(audioChunks, {
+        type: mediaRecorder.mimeType || 'audio/webm'
+      });
+
+      sendVoiceMessage(blob);
+    };
+
     mediaRecorder.start();
     isRecording = true;
     micBtn.style.background = '#ef4444';
-    setVoiceState('listening');
+    micBtn.classList.add('scale-110');
+    setVoiceState('listening', 'Listening...');
     startAudioVisualizer(voiceStream);
   }
 
-  function sendVoiceMessage(blob) {
-    if (blob.size < 1000) {
-      voiceCaption.textContent = 'No speech detected — try again.';
-      setTimeout(cancelVoiceMode, 1500);
-      return;
-    }
-    voiceAbort = new AbortController();
-    const signal = voiceAbort.signal;
-    const formData = new FormData();
-    formData.append('audio', blob, 'input.webm');
+  // Ends ONLY the current utterance.
+  // It does NOT close Voice Mode.
+  function finishRecording() {
+    if (!isRecording || !mediaRecorder) return;
+
+    isRecording = false;
+    stopAudioVisualizer();
+    micBtn.disabled = true;
+    micBtn.classList.remove('scale-110');
     setVoiceState('thinking', 'Transcribing...');
 
-    fetch('/api/transcribe', { method: 'POST', body: formData, signal })
-      .then((res) => res.json())
-      .then((data) => {
-        const text = (data.text || '').trim();
-        if (!text) {
-          voiceCaption.textContent = 'No speech detected — try again.';
-          setTimeout(cancelVoiceMode, 1500);
-          return;
-        }
-        voiceCaption.textContent = `"${text}"`;
-        setVoiceState('thinking', 'Checking the manuals...');
-
-        showHeroToChat();
-        chatView.insertAdjacentHTML('beforeend', userBubbleHtml(text));
-        pushMessage('user', text);
-
-        return askServer(text, signal)
-          .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-          .then(({ ok, data }) => {
-            if (!ok) {
-              appendErrorBubble(data.error || 'Something went wrong.');
-              voiceCaption.textContent = data.error || 'Something went wrong.';
-              setTimeout(cancelVoiceMode, 2500);
-              return;
-            }
-            appendAssistantMessage(data);
-            if (data.speech_answer) {
-              speakInVoiceMode(data.speech_answer, data.answer, signal);
-            } else {
-              voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(data.answer || '') : escapeHtml(data.answer || '');
-              setTimeout(cancelVoiceMode, 4000);
-            }
-          });
-      })
-      .catch((err) => {
-        if (err && err.name === 'AbortError') return;
-        voiceCaption.textContent = 'Something went wrong. Make sure server.py is running.';
-        setTimeout(cancelVoiceMode, 1800);
-      });
+    try {
+      mediaRecorder.stop();
+    } catch (e) {
+      if (!voiceCancelled) {
+        setTimeout(() => {
+          if (!voiceCancelled) startVoiceRecording();
+        }, 500);
+      }
+    }
   }
 
-  function speakInVoiceMode(text, answerText, signal) {
+  async function toggleMic() {
+    if (micBtn.disabled) return;
+
+    // If already recording, stop ONLY the current utterance.
+    if (isRecording) {
+      finishRecording();
+      return;
+    }
+
+    voiceCancelled = false;
+    voiceCaption.innerHTML = '';
+    sendBtn.disabled = true;
+    openVoiceOverlay();
+    setVoiceState('listening', 'Starting voice mode...');
+
+    await startVoiceRecording();
+  }
+
+  async function sendVoiceMessage(blob) {
+  if (voiceCancelled) return;
+
+  // Empty recording: stay inside Voice Mode and listen again.
+  if (!blob || blob.size < 1000) {
+    voiceCaption.textContent = 'No speech detected — try again.';
+
+    setTimeout(() => {
+      if (!voiceCancelled) startVoiceRecording();
+    }, 700);
+
+    return;
+  }
+
+  voiceAbort = new AbortController();
+  const signal = voiceAbort.signal;
+
+  try {
+    const formData = new FormData();
+    formData.append('audio', blob, 'input.webm');
+
+    setVoiceState('thinking', 'Transcribing...');
+
+    const res = await fetch('/api/transcribe', {
+      method: 'POST',
+      body: formData,
+      signal
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Transcription failed');
+    }
+
+    if (voiceCancelled) return;
+
+    const text = (data.text || '').trim();
+
+    if (!text) {
+      voiceCaption.textContent = 'No speech detected — try again.';
+
+      setTimeout(() => {
+        if (!voiceCancelled) startVoiceRecording();
+      }, 800);
+
+      return;
+    }
+
+    voiceCaption.textContent = `"${text}"`;
+    setVoiceState('thinking', 'Checking the manuals...');
+
+    showHeroToChat();
+    chatView.insertAdjacentHTML('beforeend', userBubbleHtml(text));
+    pushMessage('user', text);
+
+    const askRes = await askServer(text, signal);
+    const askData = await askRes.json();
+
+    if (voiceCancelled) return;
+
+    if (!askRes.ok) {
+      appendErrorBubble(askData.error || 'Something went wrong.');
+      voiceCaption.textContent = askData.error || 'Something went wrong.';
+
+      setTimeout(() => {
+        if (!voiceCancelled) startVoiceRecording();
+      }, 1200);
+
+      return;
+    }
+
+    appendAssistantMessage(askData);
+    const isClosing = askData.retrieval_type === 'closing';
+    if (askData.speech_answer) {
+      speakInVoiceMode(askData.speech_answer, askData.answer, signal, isClosing);
+    } else {
+      voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(askData.answer || '') : escapeHtml(askData.answer || '');
+      setTimeout(() => {
+  if (voiceCancelled) return;
+  if (isClosing) { cancelVoiceMode(); resetChat(); }
+  else startVoiceRecording();
+}, 4000);
+    }
+
+
+  } catch (err) {
+    if (voiceCancelled || (err && err.name === 'AbortError')) return;
+
+    console.error('Voice turn error:', err);
+
+    voiceCaption.textContent =
+      'Something went wrong. Make sure server.py is running. Listening again...';
+
+    setTimeout(() => {
+      if (!voiceCancelled) startVoiceRecording();
+    }, 1200);
+
+  } finally {
+    if (voiceAbort && voiceAbort.signal === signal) {
+      voiceAbort = null;
+    }
+  }
+}
+
+  function speakInVoiceMode(text, answerText, signal, isClosing) {
     setVoiceState('thinking', 'Preparing voice...');
     voiceCaption.innerHTML = (typeof marked !== 'undefined') ? marked.parse(answerText || '') : escapeHtml(answerText || '');
+
+    const finish = () => {
+      currentVoiceAudio = null;
+      if (voiceCancelled) return;
+      if (isClosing) {
+        cancelVoiceMode();
+        resetChat();
+      } else {
+        startVoiceRecording();
+      }
+    };
 
     fetch('/api/speech', {
       method: 'POST',
@@ -924,16 +1356,36 @@
       body: JSON.stringify({ text }),
       signal,
     })
-      .then((res) => { if (!res.ok) throw new Error('tts failed'); return res.blob(); })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().catch(() => ({})).then((data) => {
+            throw Object.assign(new Error(data.error || 'tts failed'), { code: data.code });
+          });
+        }
+        return res.blob();
+      })
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         currentVoiceAudio = audio;
-        audio.onended = () => { URL.revokeObjectURL(url); cancelVoiceMode(); };
+        audio.onended = () => { URL.revokeObjectURL(url); finish(); };
         audio.onplay = () => setVoiceState('speaking');
-        audio.play().catch(() => { URL.revokeObjectURL(url); cancelVoiceMode(); });
+        audio.play().catch(() => { URL.revokeObjectURL(url); finish(); });
       })
-      .catch((err) => { if (!(err && err.name === 'AbortError')) cancelVoiceMode(); });
+      .catch((err) => {
+        if (err && err.name === 'AbortError') return;
+        if (err && err.code === 'tts_rate_limit') {
+          voiceCaption.innerHTML += '<p style="color:#ef4444" class="mt-2 text-xs">Voice replies are temporarily unavailable (daily limit reached) — the written answer is above.</p>';
+          setTimeout(finish, 3500);
+          return;
+        }
+
+        console.error('TTS error:', err);
+        voiceCaption.textContent = 'Couldn’t play the answer. Listening again...';
+        setTimeout(() => {
+          if (!voiceCancelled) startVoiceRecording();
+        }, 900);
+      });
   }
 
   // ---------------- Export current conversation as a Word (.doc) file ----------------
@@ -1011,6 +1463,7 @@ ${bodyHtml}
 
   loadConversations();
   startHeroTypewriter();
+  initOrbs();
 </script>
 </body>
 </html>

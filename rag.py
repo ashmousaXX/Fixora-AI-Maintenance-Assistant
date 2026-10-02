@@ -1,7 +1,7 @@
 import re
 
 from retrieval import retrieve
-from llm import generate_answer
+from llm import generate_answer, truncate_speech_text
 
 _GREETING_RE = re.compile(
     r"^\s*(hi|hello|hey|hiya|yo|good\s*(morning|afternoon|evening))\s*[!.?]*\s*$",
@@ -15,6 +15,11 @@ _BYE_RE = re.compile(
     r"^\s*(bye|goodbye|see you|see ya|take care)\s*[!.?]*\s*$",
     re.IGNORECASE,
 )
+_NO_MORE_RE = re.compile(
+    r"^\s*(no|nope|nah|no\s*thanks|not\s*now|that'?s\s*all|nothing\s*else|"
+    r"i'?m\s*(all\s*)?done|im\s*(all\s*)?done)\s*[!.?]*\s*$",
+    re.IGNORECASE,
+)
 
 _SMALL_TALK_RESPONSES = {
     "greeting": (
@@ -23,6 +28,7 @@ _SMALL_TALK_RESPONSES = {
     ),
     "thanks": "You're welcome! Let me know if there's another fault you'd like to check.",
     "bye": "Take care! Come back anytime you run into another issue.",
+    "closing": "Glad I could help! Feel free to come back anytime you have another issue.",
 }
 
 
@@ -41,6 +47,8 @@ def _detect_small_talk(query):
         return "thanks"
     if _BYE_RE.match(text):
         return "bye"
+    if _NO_MORE_RE.match(text):
+        return "closing"
     return None
 
 
@@ -204,12 +212,12 @@ def answer_query(
 
     if small_talk:
         message = _SMALL_TALK_RESPONSES[small_talk]
-
+        retrieval_type = "closing" if small_talk in ("bye", "closing") else "small_talk"
         return {
             "answer": message,
             "speech_answer": message,
             "detected_device": None,
-            "retrieval_type": "small_talk",
+            "retrieval_type": retrieval_type,
             "context": "",
         }
 
@@ -228,7 +236,8 @@ def answer_query(
     if not context:
         fallback = (
             "No relevant information was found "
-            "in the service manuals."
+            "in the service manuals. Is there anything else I can "
+            "help you with?"
         )
 
         return {
@@ -253,16 +262,21 @@ def answer_query(
         ),
     )
 
-    return {
-        "answer": generated.get(
-            "display_answer",
-            ""
-        ),
+    display_answer = (
+        generated.get("display_answer", "")
+        + "\n\n*Is there anything else I can help you with?*"
+    )
 
-        "speech_answer": generated.get(
-            "speech_answer",
-            ""
-        ),
+    speech_answer = truncate_speech_text(
+        generated.get("speech_answer", "").rstrip(". ")
+        + ". Anything else I can help with?",
+        limit=200,
+    )
+
+    return {
+        "answer": display_answer,
+
+        "speech_answer": speech_answer,
 
         "detected_device": rag_result.get(
             "detected_device"

@@ -15,317 +15,180 @@ from config import (
 
 load_dotenv(override=True)
 
-EMBEDDING_MODEL_NAME = (
-    "sentence-transformers/all-MiniLM-L6-v2"
-)
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 COLLECTION_NAME = "maintai_manuals"
 MAX_DISTANCE = 0.5
 BM25_TOP_K = 20
 
-embedding_model = SentenceTransformer(
-    EMBEDDING_MODEL_NAME
-)
+# Top-N BM25 hits are allowed to survive the distance filter, so a
+# strong keyword match (e.g. "voltage supply") is not thrown away just
+# because its embedding is far from the query.
+BM25_RESCUE_RANK = 3
+BM25_RESCUE_MAX_DISTANCE = 0.65
+embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
 
 HYDE_MODEL_NAME = "openai/gpt-oss-20b"
 _hyde_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+
 # =========================================================
-# Query expansion (device-scoped)
+# Query expansion
 # =========================================================
 
-# Maps a generic symptom phrase to the manual's own terminology, so a
-# common way of describing a fault also matches the wording the manual
-# actually uses.
 SYNONYM_EXPANSIONS = {
     "power supply": "power supply voltage supply internal supply voltage",
+    "power problem": "voltage supply mains power",
+    "blank screen": "blank display no display",
 }
 
 
 def expand_query(query, device_id=None):
     """
-    Expand the query with manual-specific synonyms — but ONLY once the
-    target device is already known to be the Servo ventilator, where
-    "voltage supply" is the manual's actual wording for this symptom.
-
-    Applying this expansion unconditionally (regardless of device)
-    previously broke device detection for OTHER devices: SC6002XL's
-    troubleshooting tables repeat the word "voltage" constantly (e.g.
-    "measure voltage... 11.6 to 13.8 VDC"), so expanding a Philips
-    query with "voltage supply" pulled SC6002XL chunks ahead of the
-    correct Philips match during the device-detection probe, which
-    runs with device_id=None. Gating on device_id keeps expansion from
-    ever affecting device detection, since the probe always calls this
-    with device_id=None.
+    Appends manual-style synonyms to the query. device_id is accepted
+    (and currently unused) so callers can pass it without breaking.
     """
-    if device_id != "servo_ventilator":
-        return query
-
-    lowered = query.lower()
-    for key, expansion in SYNONYM_EXPANSIONS.items():
-        if key in lowered:
-            return f"{query} {expansion}"
-    return query
+    q = query.lower()
+    extra = [v for k, v in SYNONYM_EXPANSIONS.items() if k in q]
+    return query + (" " + " ".join(extra) if extra else "")
 
 
 # =========================================================
-# Get available devices
+# Vector DB helpers
 # =========================================================
 
 def get_available_devices():
-
-    client = chromadb.PersistentClient(
-        path=str(VECTOR_DB_DIR)
-    )
-    collection = client.get_collection(
-        name=COLLECTION_NAME
-    )
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+    collection = client.get_collection(name=COLLECTION_NAME)
     data = collection.get()
     devices = set()
     for metadata in data["metadatas"]:
-        device_id = metadata.get(
-            "device_id",
-            ""
-        )
+        device_id = metadata.get("device_id", "")
         if device_id:
             devices.add(device_id)
-    return sorted(
-        list(devices)
-    )
+    return sorted(list(devices))
 
-
-# =========================================================
-# Load chunks
-# =========================================================
 
 def load_chunks():
-    chunks_file = (
-        PROCESSED_DIR
-        /
-        "maintai_chunks.json"
-    )
+    chunks_file = PROCESSED_DIR / "maintai_chunks.json"
     if not chunks_file.exists():
-        raise FileNotFoundError(
-            f"Chunks file not found: {chunks_file}"
-        )
+        raise FileNotFoundError(f"Chunks file not found: {chunks_file}")
 
-    with open(
-        chunks_file,
-        "r",
-        encoding="utf-8",
-    ) as file:
+    with open(chunks_file, "r", encoding="utf-8") as file:
         chunks = json.load(file)
     return chunks
 
-# =========================================================
-# Create Vector Database
-# =========================================================
 
 def create_vector_database():
-
     print("=" * 70)
     print("CREATING VECTOR DATABASE")
     print("=" * 70)
     chunks = load_chunks()
-    print(
-        f"Loaded chunks: {len(chunks)}"
-    )
-    VECTOR_DB_DIR.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-    client = chromadb.PersistentClient(
-        path=str(VECTOR_DB_DIR)
-    )
+    print(f"Loaded chunks: {len(chunks)}")
+    VECTOR_DB_DIR.mkdir(parents=True, exist_ok=True)
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
     try:
-        client.delete_collection(
-            COLLECTION_NAME
-        )
-        print(
-            "Old collection deleted"
-        )
+        client.delete_collection(COLLECTION_NAME)
+        print("Old collection deleted")
     except Exception:
         pass
 
     collection = client.create_collection(
         name=COLLECTION_NAME,
-        metadata={
-            "hnsw:space": "cosine"
-        },
+        metadata={"hnsw:space": "cosine"},
     )
     texts = []
     ids = []
     metadatas = []
     for chunk in chunks:
-        text = chunk.get(
-            "text",
-            ""
-        ).strip()
+        text = chunk.get("text", "").strip()
         if not text:
             continue
-        chunk_id = chunk.get(
-            "chunk_id"
-        )
+        chunk_id = chunk.get("chunk_id")
         if not chunk_id:
             continue
 
         metadata = {
-            "device_id":
-                str(
-                    chunk.get(
-                        "device_id",
-                        ""
-                    )
-                ),
-
-            "device":
-                str(
-                    chunk.get(
-                        "device",
-                        ""
-                    )
-                ),
-
-            "manufacturer":
-                str(
-                    chunk.get(
-                        "manufacturer",
-                        ""
-                    )
-                ),
-            "page":
-                int(
-                    chunk.get(
-                        "page",
-                        0
-                    )
-                ),
-            "section":
-                str(
-                    chunk.get(
-                        "section",
-                        ""
-                    )
-                ),
-            "chunk_type":
-                str(
-                    chunk.get(
-                        "chunk_type",
-                        "text"
-                    )
-                ),
-            "error_code":
-                (
-                    str(
-                        chunk["error_code"]
-                    )
-                    if chunk.get("error_code") is not None
-                    else ""
-                ),
+            "device_id": str(chunk.get("device_id", "")),
+            "device": str(chunk.get("device", "")),
+            "manufacturer": str(chunk.get("manufacturer", "")),
+            "page": int(chunk.get("page", 0)),
+            "section": str(chunk.get("section", "")),
+            "chunk_type": str(chunk.get("chunk_type", "text")),
+            "error_code": (
+                str(chunk["error_code"])
+                if chunk.get("error_code") is not None
+                else ""
+            ),
         }
         texts.append(text)
         ids.append(chunk_id)
         metadatas.append(metadata)
     print(f"Documents prepared: {len(texts)}")
 
-    # =========================================
-    # Create embeddings
-    # =========================================
     embeddings = embedding_model.encode(
         texts,
         show_progress_bar=True,
         normalize_embeddings=True,
         batch_size=32,
-
     )
 
     CHROMA_BATCH_SIZE = 1000
     total = len(texts)
-    for start in range(
-        0,
-        total,
-        CHROMA_BATCH_SIZE
-    ):
-        end = min(
-            start + CHROMA_BATCH_SIZE,
-            total
-        )
-
-        print(
-            f"Adding batch {start} - {end} / {total}"
-        )
+    for start in range(0, total, CHROMA_BATCH_SIZE):
+        end = min(start + CHROMA_BATCH_SIZE, total)
+        print(f"Adding batch {start} - {end} / {total}")
         collection.add(
-            ids=
-                ids[start:end],
-            documents=
-                texts[start:end],
-            metadatas=
-                metadatas[start:end],
-            embeddings=
-                embeddings[start:end].tolist(),
+            ids=ids[start:end],
+            documents=texts[start:end],
+            metadatas=metadatas[start:end],
+            embeddings=embeddings[start:end].tolist(),
         )
     print()
-    print( f"Stored vectors: {collection.count()}")
+    print(f"Stored vectors: {collection.count()}")
     print("=" * 70)
 
 
-
 # =========================================================
-# Semantic Search
+# Semantic search
 # =========================================================
 
 def semantic_search(
     query,
     device_id=None,
     top_k=8,
+    expand=False,
 ):
+    """
+    expand=False by default: the device-detection probe and the HyDE
+    leg must see the query exactly as written. Synonym expansion is
+    only requested explicitly by hybrid_search for the raw-query leg.
+    """
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+    collection = client.get_collection(name=COLLECTION_NAME)
 
-    client = chromadb.PersistentClient(
-        path=str(VECTOR_DB_DIR)
-    )
-    collection = client.get_collection(
-        name=COLLECTION_NAME
-    )
-
-    search_query = expand_query(query, device_id=device_id)
+    search_query = expand_query(query, device_id=device_id) if expand else query
 
     query_embedding = embedding_model.encode(
         search_query,
         normalize_embeddings=True,
     )
     search_arguments = {
-        "query_embeddings":
-            [
-                query_embedding.tolist()
-            ],
-        "n_results":
-            top_k,
+        "query_embeddings": [query_embedding.tolist()],
+        "n_results": top_k,
     }
 
     if device_id:
-        search_arguments["where"] = {
-            "device_id":
-                device_id
-        }
+        search_arguments["where"] = {"device_id": device_id}
 
-    results = collection.query(
-        **search_arguments
-    )
+    results = collection.query(**search_arguments)
     return results
 
+
 # =========================================================
-# HyDE: Hypothetical Document Embeddings
+# HyDE
 # =========================================================
 
 def generate_hypothetical_passage(query):
-    """
-    HyDE: rewrites the user's symptom description in manual-style
-    technical language before embedding it, so vague everyday phrasing
-    can still match precise manual terminology it doesn't share any
-    words with. General technique, not tuned to any one fault.
-
-    Falls back to the original query on any failure (rate limit,
-    network error, etc.) so a HyDE hiccup never breaks retrieval.
-    """
     try:
         response = _hyde_client.chat.completions.create(
             model=HYDE_MODEL_NAME,
@@ -341,32 +204,32 @@ def generate_hypothetical_passage(query):
                 },
                 {"role": "user", "content": query},
             ],
-            temperature=0.3,
-            max_tokens=60,
+            temperature=0,  # deterministic: same query -> same rewrite
+            # gpt-oss models "think" first; a tiny limit could be spent
+            # entirely on reasoning and leave an empty answer.
+            max_completion_tokens=200,
+            reasoning_effort="low",
         )
-        rewritten = response.choices[0].message.content.strip()
+        rewritten = (response.choices[0].message.content or "").strip()
         return rewritten if rewritten else query
     except Exception as error:
         print(f"  HyDE rewrite failed, using original query: {error}")
         return query
 
 
+# =========================================================
+# BM25 keyword search
+# =========================================================
+
 _bm25_cache = {}
+
+
 def _get_bm25_index(device_id):
-
-    """Build (and cache) a BM25 index over every chunk of one device."""
-
     if device_id in _bm25_cache:
         return _bm25_cache[device_id]
-    client = chromadb.PersistentClient(
-        path=str(VECTOR_DB_DIR)
-    )
-    collection = client.get_collection(
-        name=COLLECTION_NAME
-    )
-    data = collection.get(
-        where={"device_id": device_id}
-    )
+    client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+    collection = client.get_collection(name=COLLECTION_NAME)
+    data = collection.get(where={"device_id": device_id})
 
     ids = data["ids"]
     texts = data["documents"]
@@ -392,11 +255,12 @@ def keyword_search(
     device_id,
     top_k=BM25_TOP_K,
 ):
-
     index = _get_bm25_index(device_id)
+    # BM25 benefits the most from synonym expansion
+    # (e.g. "power supply" -> "voltage supply").
     tokenized_query = re.findall(
         r"[a-z0-9]+",
-        query.lower(),
+        expand_query(query).lower(),
     )
     scores = index["bm25"].get_scores(tokenized_query)
     ranked_positions = sorted(
@@ -405,9 +269,7 @@ def keyword_search(
         reverse=True,
     )
 
-    ranked_positions = [
-        i for i in ranked_positions if scores[i] > 0
-    ][:top_k]
+    ranked_positions = [i for i in ranked_positions if scores[i] > 0][:top_k]
     return {
         "ids": [index["ids"][i] for i in ranked_positions],
         "documents": [index["texts"][i] for i in ranked_positions],
@@ -415,330 +277,202 @@ def keyword_search(
         "scores": [scores[i] for i in ranked_positions],
     }
 
+
 # =========================================================
-# Hybrid Search
-# Semantic + BM25 candidates combined using RRF
+# Hybrid search
+#   legs: raw query (expanded) + HyDE rewrite + BM25, fused with RRF
+#   distance gate: min(distance to raw query, distance to HyDE query)
+#   -> HyDE can only help a chunk pass, never make it fail.
 # =========================================================
 
 def hybrid_search(
     query,
     device_id,
     top_k=8,
+    hyde_query=None,
 ):
-    """
-    Combine semantic and BM25 retrieval using
-    Reciprocal Rank Fusion (RRF).
+    if hyde_query is None:
+        hyde_query = generate_hypothetical_passage(query)
 
-    Semantic search captures meaning/similarity.
-    BM25 captures exact lexical/keyword matches.
+    use_hyde = bool(hyde_query) and hyde_query.strip() != query.strip()
 
-    RRF is used only for ranking candidates.
+    semantic_top_k = max(top_k * 3, 24)
 
-    IMPORTANT:
-    After fusion, candidates are filtered using
-    MAX_DISTANCE before they are returned to the LLM.
-    This prevents weak semantic matches from entering
-    the final RAG context just because they ranked well
-    through BM25/RRF.
-    """
+    empty_result = {
+        "ids": [[]],
+        "documents": [[]],
+        "metadatas": [[]],
+        "distances": [[]],
+    }
 
-    hyde_query = generate_hypothetical_passage(query)
+    candidates = {}
 
-    semantic_top_k = max(
-        top_k * 3,
-        24,
-    )
+    def _get(doc_id, document, metadata):
+        if doc_id not in candidates:
+            candidates[doc_id] = {
+                "id": doc_id,
+                "document": document,
+                "metadata": metadata,
+                "query_rank": None,
+                "hyde_rank": None,
+                "bm25_rank": None,
+                "dist_query": None,
+                "dist_hyde": None,
+            }
+        return candidates[doc_id]
 
-    semantic_results = semantic_search(
-        query=hyde_query,
+    # ---- Leg 1: raw query (with synonym expansion) ----
+    query_results = semantic_search(
+        query=query,
         device_id=device_id,
         top_k=semantic_top_k,
+        expand=True,
     )
-    semantic_ids = list(
-        semantic_results["ids"][0]
-    )
+    for rank, (doc_id, doc, meta) in enumerate(
+        zip(
+            query_results["ids"][0],
+            query_results["documents"][0],
+            query_results["metadatas"][0],
+        ),
+        start=1,
+    ):
+        _get(doc_id, doc, meta)["query_rank"] = rank
 
-    semantic_documents = list(
-        semantic_results["documents"][0]
-    )
+    # ---- Leg 2: HyDE rewrite ----
+    if use_hyde:
+        hyde_results = semantic_search(
+            query=hyde_query,
+            device_id=device_id,
+            top_k=semantic_top_k,
+            expand=False,
+        )
+        for rank, (doc_id, doc, meta) in enumerate(
+            zip(
+                hyde_results["ids"][0],
+                hyde_results["documents"][0],
+                hyde_results["metadatas"][0],
+            ),
+            start=1,
+        ):
+            _get(doc_id, doc, meta)["hyde_rank"] = rank
 
-    semantic_metadatas = list(
-        semantic_results["metadatas"][0]
-    )
-
-    semantic_distances = list(
-        semantic_results["distances"][0]
-    )
-
-    # -----------------------------------------------------
-    # 2. BM25 candidates
-    # -----------------------------------------------------
-
+    # ---- Leg 3: BM25 ----
     keyword_results = keyword_search(
         query=query,
         device_id=device_id,
         top_k=BM25_TOP_K,
     )
-
-    keyword_ids = list(
-        keyword_results["ids"]
-    )
-
-    keyword_documents = list(
-        keyword_results["documents"]
-    )
-
-    keyword_metadatas = list(
-        keyword_results["metadatas"]
-    )
-
-    # -----------------------------------------------------
-    # 3. Build candidate lookup table
-    # -----------------------------------------------------
-
-    candidates = {}
-
-    # Add semantic candidates
-    for idx, doc_id in enumerate(
-        semantic_ids
+    for rank, (doc_id, doc, meta) in enumerate(
+        zip(
+            keyword_results["ids"],
+            keyword_results["documents"],
+            keyword_results["metadatas"],
+        ),
+        start=1,
     ):
-        candidates[doc_id] = {
-            "id": doc_id,
-            "document":
-                semantic_documents[idx],
-            "metadata":
-                semantic_metadatas[idx],
-            "semantic_distance":
-                float(
-                    semantic_distances[idx]
-                ),
-            "semantic_rank":
-                idx + 1,
-            "bm25_rank":
-                None,
-        }
-
-    # Add BM25 candidates
-    for idx, doc_id in enumerate(
-        keyword_ids
-    ):
-        if doc_id not in candidates:
-
-            candidates[doc_id] = {
-                "id": doc_id,
-                "document":
-                    keyword_documents[idx],
-                "metadata":
-                    keyword_metadatas[idx],
-                "semantic_distance":
-                    None,
-                "semantic_rank":
-                    None,
-                "bm25_rank":
-                    idx + 1,
-            }
-
-        else:
-            candidates[doc_id]["bm25_rank"] = (
-                idx + 1
-            )
+        _get(doc_id, doc, meta)["bm25_rank"] = rank
 
     if not candidates:
-        return {
-            "ids": [[]],
-            "documents": [[]],
-            "metadatas": [[]],
-            "distances": [[]],
-        }
+        return empty_result
 
-    # -----------------------------------------------------
-    # 4. Calculate semantic distance for BM25-only
-    #    candidates
-    # -----------------------------------------------------
+    # ---- Uniform distances for every candidate ----
+    # Always measured against the ORIGINAL (un-expanded) query, and
+    # against the HyDE rewrite when it exists.
+    candidate_list = list(candidates.values())
+    doc_embeddings = embedding_model.encode(
+        [c["document"] for c in candidate_list],
+        normalize_embeddings=True,
+        batch_size=32,
+    )
+    query_embedding = embedding_model.encode(query, normalize_embeddings=True)
+    hyde_embedding = (
+        embedding_model.encode(hyde_query, normalize_embeddings=True)
+        if use_hyde
+        else None
+    )
 
-    query_embedding = None
+    for candidate, doc_embedding in zip(candidate_list, doc_embeddings):
+        candidate["dist_query"] = float(1.0 - (doc_embedding @ query_embedding))
+        if hyde_embedding is not None:
+            candidate["dist_hyde"] = float(1.0 - (doc_embedding @ hyde_embedding))
 
-    for candidate in candidates.values():
+        distances = [
+            d for d in (candidate["dist_query"], candidate["dist_hyde"])
+            if d is not None
+        ]
+        candidate["semantic_distance"] = min(distances)
 
-        if candidate["semantic_distance"] is not None:
-            continue
-
-        if query_embedding is None:
-            query_embedding = (
-                embedding_model.encode(
-                    hyde_query,
-                    normalize_embeddings=True,
-                )
-            )
-
-        document_embedding = (
-            embedding_model.encode(
-                candidate["document"],
-                normalize_embeddings=True,
-            )
-        )
-
-        candidate["semantic_distance"] = float(
-            1.0
-            -
-            (
-                document_embedding
-                @
-                query_embedding
-            )
-        )
-
-    # -----------------------------------------------------
-    # 5. Filter weak semantic matches
-    # -----------------------------------------------------
-
+    # ---- Distance filter (+ BM25 rescue) ----
     filtered_candidates = [
-        candidate
-        for candidate in candidates.values()
-        if candidate["semantic_distance"]
-        <= MAX_DISTANCE
+        c for c in candidate_list
+        if c["semantic_distance"] <= MAX_DISTANCE
+        or (
+            c["bm25_rank"] is not None
+            and c["bm25_rank"] <= BM25_RESCUE_RANK
+            and c["semantic_distance"] <= BM25_RESCUE_MAX_DISTANCE
+        )
     ]
 
     if not filtered_candidates:
-        return {
-            "ids": [[]],
-            "documents": [[]],
-            "metadatas": [[]],
-            "distances": [[]],
-        }
+        return empty_result
 
-        # -----------------------------------------------------
-    # 4. Reciprocal Rank Fusion
-    # -----------------------------------------------------
-
+    # ---- Reciprocal Rank Fusion ----
     RRF_K = 60
-    SEMANTIC_WEIGHT = 1.5
+    QUERY_WEIGHT = 1.5
+    HYDE_WEIGHT = 1.0
     BM25_WEIGHT = 1.0
 
     for candidate in filtered_candidates:
-
-        rrf_score = 0.0
-
-        if candidate.get("semantic_rank") is not None:
-            rrf_score += (
-                SEMANTIC_WEIGHT
-                /
-                (
-                    RRF_K
-                    + candidate["semantic_rank"]
-                )
-            )
-
-        if candidate.get("bm25_rank") is not None:
-            rrf_score += (
-                BM25_WEIGHT
-                /
-                (
-                    RRF_K
-                    + candidate["bm25_rank"]
-                )
-            )
-
-        # IMPORTANT:
-        # Every candidate must receive an RRF score
-        # before sorting.
-        candidate["rrf_score"] = rrf_score
-    # -----------------------------------------------------
-    # 5. Sort by fused ranking
-    # -----------------------------------------------------
+        score = 0.0
+        if candidate["query_rank"] is not None:
+            score += QUERY_WEIGHT / (RRF_K + candidate["query_rank"])
+        if candidate["hyde_rank"] is not None:
+            score += HYDE_WEIGHT / (RRF_K + candidate["hyde_rank"])
+        if candidate["bm25_rank"] is not None:
+            score += BM25_WEIGHT / (RRF_K + candidate["bm25_rank"])
+        candidate["rrf_score"] = score
 
     ranked_candidates = sorted(
-    filtered_candidates,
-    key=lambda item: (
-        item.get("rrf_score", 0.0),
-        (
-            -item["semantic_distance"]
-            if item.get("semantic_distance") is not None
-            else float("-inf")
-        ),
-    ),
-    reverse=True,
-)
-
-    # -----------------------------------------------------
-    # 6. Keep final top-k
-    # -----------------------------------------------------
-
-    ranked_candidates = ranked_candidates[:top_k]
-    # -----------------------------------------------------
-    # 9. Prepare Chroma-like result structure
-    # -----------------------------------------------------
-
-    result_ids = []
-    result_documents = []
-    result_metadatas = []
-    result_distances = []
-
-    for candidate in ranked_candidates:
-
-        result_ids.append(
-            candidate["id"]
-        )
-
-        result_documents.append(
-            candidate["document"]
-        )
-
-        result_metadatas.append(
-            candidate["metadata"]
-        )
-
-        result_distances.append(
-            candidate["semantic_distance"]
-        )
+        filtered_candidates,
+        key=lambda item: (item["rrf_score"], -item["semantic_distance"]),
+        reverse=True,
+    )[:top_k]
 
     true_best_distance = min(
-        candidate["semantic_distance"]
-        for candidate in filtered_candidates
+        c["semantic_distance"] for c in filtered_candidates
     )
 
     return {
-        "ids": [
-            result_ids
-        ],
-        "documents": [
-            result_documents
-        ],
-        "metadatas": [
-            result_metadatas
-        ],
-        "distances": [
-            result_distances
-        ],
+        "ids": [[c["id"] for c in ranked_candidates]],
+        "documents": [[c["document"] for c in ranked_candidates]],
+        "metadatas": [[c["metadata"] for c in ranked_candidates]],
+        "distances": [[c["semantic_distance"] for c in ranked_candidates]],
         "true_best_distance": true_best_distance,
     }
 
 
 # =========================================================
-# Exact Error Search
+# Exact error-code search
 # =========================================================
+
 MAX_EXACT_MATCHES = 5
+
+
 def exact_error_search(
     error_code,
     device_id=None,
 ):
     client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
     collection = client.get_collection(name=COLLECTION_NAME)
-    filters = [
-        {"error_code":str(error_code)}
-    ]
+    filters = [{"error_code": str(error_code)}]
 
     if device_id:
-        filters.append(
-            {"device_id":device_id}
-        )
+        filters.append({"device_id": device_id})
     if len(filters) == 1:
         where_clause = filters[0]
     else:
         where_clause = {"$and": filters}
-    results = collection.get(
-        where=where_clause
-    )
+    results = collection.get(where=where_clause)
     if len(results.get("ids", [])) > MAX_EXACT_MATCHES:
         for key in ("ids", "documents", "metadatas"):
             if key in results and results[key]:
@@ -746,12 +480,8 @@ def exact_error_search(
     return results
 
 
-
-# =========================================================
-# Detect Error Code
-# =========================================================
-
 FALSE_POSITIVE_ERROR_CODES = {"382"}
+
 
 def detect_error_code(query):
     patterns = [
@@ -762,11 +492,7 @@ def detect_error_code(query):
         r"\bERR[-\s]?(\d{1,5})\b",
     ]
     for pattern in patterns:
-        match = re.search(
-            pattern,
-            query,
-            re.IGNORECASE,
-        )
+        match = re.search(pattern, query, re.IGNORECASE)
         if match:
             code = match.group(1)
             if code in FALSE_POSITIVE_ERROR_CODES:
@@ -774,9 +500,11 @@ def detect_error_code(query):
             return code
     return None
 
+
 # =========================================================
-# Main Retrieval
+# Main retrieval entry point
 # =========================================================
+
 def retrieve(
     query,
     device_id=None,
@@ -784,33 +512,25 @@ def retrieve(
     top_k=8,
 ):
     if error_code is None:
-        error_code = detect_error_code(
-            query
-        )
+        error_code = detect_error_code(query)
     if error_code:
-        exact_results = exact_error_search(
-            error_code,
-            device_id,
-        )
+        exact_results = exact_error_search(error_code, device_id)
         if exact_results["ids"]:
             return {
-                "retrieval_type":
-                    "exact_error",
-                "detected_error_code":
-                    error_code,
-                "detected_device":
-                    exact_results["metadatas"][0].get(
-                        "device_id",
-                        ""
-                    ),
-                "results":
-                    exact_results,
+                "retrieval_type": "exact_error",
+                "detected_error_code": error_code,
+                "detected_device": exact_results["metadatas"][0].get(
+                    "device_id", ""
+                ),
+                "results": exact_results,
             }
+
     search_device_id = device_id
+
+    # ---- Device detection probe: RAW query, no expansion, no HyDE ----
+    # (expansion here used to drag e.g. Philips questions to the wrong
+    # device because "voltage supply" matches other manuals better)
     if search_device_id is None:
-        # device_id=None here means expand_query will NOT expand the
-        # probe query (it only expands once device_id == "servo_ventilator"),
-        # so device detection always runs on the query as written.
         probe_results = semantic_search(
             query=query,
             device_id=None,
@@ -824,7 +544,9 @@ def retrieve(
                 "detected_device": None,
                 "results": probe_results,
             }
+
         probe_distance = probe_results["distances"][0][0]
+
         if probe_distance > MAX_DISTANCE:
             return {
                 "retrieval_type": "not_found",
@@ -832,27 +554,31 @@ def retrieve(
                 "detected_device": None,
                 "results": probe_results,
             }
+
         search_device_id = probe_results["metadatas"][0][0].get(
             "device_id", ""
         )
+
+    # HyDE only after the device is known and the query is relevant
+    # (saves one Groq call for irrelevant questions).
+    hyde_query = generate_hypothetical_passage(query)
+    print(f"HyDE rewrite: {hyde_query}")
 
     semantic_results = hybrid_search(
         query=query,
         device_id=search_device_id,
         top_k=top_k,
+        hyde_query=hyde_query,
     )
 
     if not semantic_results["documents"][0]:
         return {
-            "retrieval_type":
-                "not_found",
-            "detected_error_code":
-                error_code,
-            "detected_device":
-                None,
-            "results":
-                semantic_results,
+            "retrieval_type": "not_found",
+            "detected_error_code": error_code,
+            "detected_device": None,
+            "results": semantic_results,
         }
+
     best_distance = semantic_results.get(
         "true_best_distance",
         semantic_results["distances"][0][0],
@@ -862,62 +588,34 @@ def retrieve(
 
     if best_distance > MAX_DISTANCE:
         return {
-            "retrieval_type":
-                "not_found",
-            "detected_error_code":
-                error_code,
-            "detected_device":
-                None,
-            "results":
-                semantic_results,
+            "retrieval_type": "not_found",
+            "detected_error_code": error_code,
+            "detected_device": None,
+            "results": semantic_results,
         }
-    detected_device = (
-        semantic_results
-        ["metadatas"]
-        [0]
-        [0]
-        .get(
-            "device_id",
-            ""
-        )
-    )
-    return {
-        "retrieval_type":
-            "semantic",
-        "detected_error_code":
-            error_code,
-        "detected_device":
-            detected_device,
 
-        "results":
-            semantic_results,
+    detected_device = semantic_results["metadatas"][0][0].get("device_id", "")
+    return {
+        "retrieval_type": "semantic",
+        "detected_error_code": error_code,
+        "detected_device": detected_device,
+        "results": semantic_results,
     }
 
 
-
-# =========================================================
-# Test
-# =========================================================
 def test_retrieve():
-    query = (
-        "The ventilator has a power supply problem"
-    )
+    query = "The ventilator has a power supply problem"
     result = retrieve(
         query=query,
         top_k=8,
     )
-    print("="*70)
-    print(
-        "TYPE:",
-        result["retrieval_type"]
-    )
-    print(
-        "DEVICE:",
-        result["detected_device"]
-    )
-    print(
-        result["results"]["documents"][0]
-    )
+    print("=" * 70)
+    print("TYPE:", result["retrieval_type"])
+    print("DEVICE:", result["detected_device"])
+    for doc in result["results"]["documents"][0]:
+        print("-" * 70)
+        print(doc[:300])
+
 
 if __name__ == "__main__":
     test_retrieve()
